@@ -1,121 +1,142 @@
-# Internal File Service API
+# File Service API
 
-A centralized FastAPI microservice for managing file uploads, downloads, and storage metadata built on top of AWS S3 and PostgreSQL/SQLAlchemy.
+A centralized REST API for managing file uploads and downloads across multiple applications, built on **FastAPI** and **AWS S3**.
 
----
+## Why This Exists
 
-## 🏗️ Architecture & Upload Flow
+Instead of each application implementing its own file upload logic, this service provides a single, secure API that any internal application can use. Files are stored in AWS S3 using **presigned URLs**, meaning the API server never handles file binary data — clients upload and download directly from S3.
 
-To avoid passing heavy file streams through the API server, this service uses **AWS S3 Presigned URLs**.
+## Architecture
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant App as Client Application
-    participant API as File Service API
-    participant S3 as AWS S3 Bucket
-
-    App->>API: POST /files/upload-url (filename, content_type, owner_id) + Header: x-api-key
-    API-->>App: { upload_url, file_id } (Status: PENDING)
-    App->>S3: PUT binary file to upload_url
-    S3-->>App: 200 OK
-    App->>API: POST /files/{file_id}/confirm
-    API->>S3: head_object(s3_key)
-    API-->>App: { status: "COMPLETED", file_id, size }
+```
+┌──────────────┐     1. Request upload URL      ┌───────────────────┐
+│              │ ──────────────────────────────→ │                   │
+│  Client App  │     2. Return presigned URL     │  File Service API │
+│  (Web/Mobile)│ ←────────────────────────────── │  (FastAPI)        │
+│              │                                 │                   │
+│              │     3. Upload file directly      │                   │
+│              │ ──────────────────────────────→ │    AWS S3 Bucket  │
+│              │                                 │                   │
+│              │     4. Confirm upload            │                   │
+│              │ ──────────────────────────────→ │  File Service API │
+└──────────────┘                                 └───────────────────┘
 ```
 
----
+## Tech Stack
 
-## 🔑 Authentication
+| Component      | Technology                          |
+| :------------- | :---------------------------------- |
+| Framework      | FastAPI (Python)                    |
+| Database       | PostgreSQL (via SQLAlchemy ORM)     |
+| File Storage   | AWS S3 (presigned URLs)             |
+| Authentication | API key per application (`x-api-key`) |
+| CI/CD          | GitHub Actions                      |
+| Local DB       | Docker Compose (PostgreSQL 16)      |
 
-All endpoints require the HTTP header:
-```http
-x-api-key: YOUR_APP_API_KEY
+## Project Structure
+
 ```
-This key identifies the consuming application and enforces multi-tenant data isolation.
+├── main.py               # API endpoints and application entry point
+├── models.py             # SQLAlchemy ORM models (App, FileRecord)
+├── auth.py               # API key authentication dependency
+├── db.py                 # Database engine and session management
+├── s3_client.py          # AWS S3 client initialization
+├── docker-compose.yml    # Local PostgreSQL via Docker
+├── requirements.txt      # Python dependencies
+├── tests/
+│   └── test_main.py      # Unit tests (pytest)
+└── .github/
+    └── workflows/
+        └── ci.yml        # GitHub Actions CI pipeline
+```
 
----
+## Getting Started
 
-## 📡 API Endpoints
+### Prerequisites
 
-### 1. Request Upload URL
-* **`POST /files/upload-url`**
-* **Request Body**:
-  ```json
-  {
-    "filename": "document.pdf",
-    "content_type": "application/pdf",
-    "owner_id": "user_123"
-  }
-  ```
-* **Response**:
-  ```json
-  {
-    "upload_url": "https://myapp-files-prod-wask.s3.amazonaws.com/...",
-    "file_id": 42
-  }
-  ```
+- Python 3.11+
+- Docker (for local PostgreSQL)
+- An AWS account with an S3 bucket
 
-### 2. Confirm Upload Success
-* **`POST /files/{file_id}/confirm`**
-* Verifies file existence on S3, populates file size, and sets status to `"COMPLETED"`.
-* **Response**:
-  ```json
-  {
-    "status": "COMPLETED",
-    "file_id": 42,
-    "size": 1048576
-  }
-  ```
-
-### 3. Generate Presigned Download URL
-* **`GET /files/{file_id}/download-url?expires_in=300`**
-* **Response**:
-  ```json
-  {
-    "download_url": "https://myapp-files-prod-wask.s3.amazonaws.com/...",
-    "filename": "document.pdf"
-  }
-  ```
-
-### 4. List Files
-* **`GET /files?owner_id=user_123&status=COMPLETED&limit=50&offset=0`**
-* **Response**:
-  ```json
-  {
-    "total": 1,
-    "limit": 50,
-    "offset": 0,
-    "files": [
-      {
-        "id": 42,
-        "s3_key": "app_id/uuid-document.pdf",
-        "original_filename": "document.pdf",
-        "owner_id": "user_123",
-        "content_type": "application/pdf",
-        "size": 1048576,
-        "status": "COMPLETED",
-        "uploaded_at": "2026-07-22T19:27:00+00:00"
-      }
-    ]
-  }
-  ```
-
-### 5. Get File Metadata
-* **`GET /files/{file_id}`**
-
-### 6. Delete File
-* **`DELETE /files/{file_id}`**
-* Removes object from S3 and deletes the metadata record from database.
-
----
-
-## ⚡ Running locally
+### 1. Clone and Install
 
 ```bash
-# Activate virtual environment
-.\venv\Scripts\activate
-
-# Run dev server
-uvicorn main:app --reload
+git clone https://github.com/WASKTECH/File_service_server.git
+cd File_service_server
+python -m venv venv
+.\venv\Scripts\activate        # Windows
+pip install -r requirements.txt
 ```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with your AWS credentials and database URL
+```
+
+### 3. Start the Database
+
+```bash
+docker compose up -d
+```
+
+### 4. Run the Server
+
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Open **http://localhost:8000/docs** for the interactive Swagger documentation.
+
+### 5. Seed an Application
+
+Before making API calls, register a consuming application:
+
+```python
+# seed_app.py
+from db import SessionLocal, engine
+from models import App, Base
+import secrets
+
+Base.metadata.create_all(bind=engine)
+db = SessionLocal()
+api_key = secrets.token_hex(16)
+db.add(App(id="my_app", name="My Application", api_key=api_key))
+db.commit()
+print(f"API Key: {api_key}")
+db.close()
+```
+
+```bash
+python seed_app.py
+```
+
+## API Endpoints
+
+All endpoints require the `x-api-key` header.
+
+| Method   | Endpoint                        | Description                            |
+| :------- | :------------------------------ | :------------------------------------- |
+| `POST`   | `/files/upload-url`             | Request a presigned S3 upload URL      |
+| `POST`   | `/files/{file_id}/confirm`      | Confirm upload and verify S3 object    |
+| `GET`    | `/files`                        | List files (with pagination & filters) |
+| `GET`    | `/files/{file_id}`              | Get file metadata                      |
+| `GET`    | `/files/{file_id}/download-url` | Generate a presigned download URL      |
+| `DELETE` | `/files/{file_id}`              | Delete file from S3 and database       |
+
+## Running Tests
+
+```bash
+pytest
+```
+
+Tests use an isolated SQLite database and mocked S3 — no external services required.
+
+## Multi-Tenant Isolation
+
+Each consuming application is isolated through three layers:
+
+1. **Authentication**: Unique API key per application.
+2. **Database**: All queries filter by `app_id` — App A cannot see App B's files.
+3. **Storage**: S3 keys are prefixed with `{app_id}/` — physical namespace separation.
