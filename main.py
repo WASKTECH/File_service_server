@@ -3,6 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from pathlib import Path
+from contextlib import asynccontextmanager
 import uuid
 from botocore.exceptions import ClientError
 
@@ -11,10 +12,12 @@ from auth import get_current_app
 from db import get_db, engine
 from models import Base, App, FileRecord
 
-# Ensure database tables exist
-Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
 
-app = FastAPI(title="Internal File API")
+app = FastAPI(title="Internal File API", lifespan=lifespan)
 
 class UploadRequest(BaseModel):
     filename: str

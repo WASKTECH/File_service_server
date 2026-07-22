@@ -1,20 +1,19 @@
+import os
 import pytest
 from unittest.mock import patch, MagicMock
+
+# Force file-based SQLite database for testing to ensure engine consistency
+TEST_DB_FILE = "./test_runner.db"
+TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-# Setup test DB (SQLite in-memory)
-TEST_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Import models and app after setting up test db override
 from models import Base, App, FileRecord
-from db import get_db
+from db import get_db, engine
 from main import app
 
-Base.metadata.create_all(bind=engine)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def override_get_db():
     db = TestingSessionLocal()
