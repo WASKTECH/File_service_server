@@ -23,6 +23,9 @@ htmlcov/
 *.swp
 *.swo
 
+# Private Documentation
+BEGINNER_GUIDE.md
+
 # OS files
 .DS_Store
 Thumbs.db
