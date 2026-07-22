@@ -21,6 +21,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: testing_secret_key
       S3_BUCKET: test-bucket
       DATABASE_URL: sqlite:///./test.db
+      PYTHONPATH: .
 
     steps:
       - name: Checkout repository
@@ -39,4 +40,4 @@ jobs:
 
       - name: Run Pytest
         run: |
-          pytest -v
+          python -m pytest -v
