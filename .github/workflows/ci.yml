@@ -7,8 +7,8 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test:
-    name: Run Unit Tests & Lint
+  lint-and-test:
+    name: Lint, Test & Coverage Check
     runs-on: ubuntu-latest
 
     strategy:
@@ -16,11 +16,12 @@ jobs:
         python-version: ["3.11", "3.12"]
 
     env:
+      ENVIRONMENT: test
       AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: testing_access_key
-      AWS_SECRET_ACCESS_KEY: testing_secret_key
-      S3_BUCKET: test-bucket
-      DATABASE_URL: sqlite:///./test.db
+      AWS_ACCESS_KEY_ID: mock_key
+      AWS_SECRET_ACCESS_KEY: mock_secret
+      S3_BUCKET: ci-test-bucket
+      DATABASE_URL: sqlite:///./ci_test.db
       PYTHONPATH: .
 
     steps:
@@ -38,6 +39,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Pytest
+      - name: Code Quality & Linting with Ruff
         run: |
-          python -m pytest -v
+          ruff check app/ tests/
+
+      - name: Run Pytest with Coverage Report
+        run: |
+          pytest --cov=app --cov-report=term-missing --cov-report=xml
+
+      - name: Verify Environment Verification Script
+        run: |
+          python verify_environment.py
+
+          

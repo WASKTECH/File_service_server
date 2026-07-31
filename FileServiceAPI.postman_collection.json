@@ -1,0 +1,185 @@
+{
+  "info": {
+    "name": "File Service API",
+    "description": "Centralized file management built on FastAPI + AWS S3",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "api_key",  "value": "8fba5786e29e98315decdb1eed0dca80" },
+    { "key": "file_id",  "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "1. Request Upload URL",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "x-api-key",    "value": "{{api_key}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"filename\": \"demo-report.pdf\",\n  \"content_type\": \"application/pdf\",\n  \"owner_id\": \"cto_demo\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/files/upload-url", "host": ["{{base_url}}"], "path": ["files", "upload-url"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var json = pm.response.json();",
+              "pm.collectionVariables.set('file_id', json.file_id);",
+              "pm.test('Got presigned URL', () => pm.expect(json.upload_url).to.include('s3.amazonaws.com'));",
+              "pm.test('Got file_id', () => pm.expect(json.file_id).to.be.a('number'));",
+              "console.log('Saved file_id:', json.file_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Confirm Upload",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{base_url}}/files/{{file_id}}/confirm", "host": ["{{base_url}}"], "path": ["files", "{{file_id}}", "confirm"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 400', () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));",
+              "console.log('Confirm response:', pm.response.json());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. List Files",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/files?status=ALL&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["files"],
+          "query": [
+            { "key": "status", "value": "ALL" },
+            { "key": "limit",  "value": "10" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "var json = pm.response.json();",
+              "pm.test('Has total field', () => pm.expect(json).to.have.property('total'));",
+              "console.log('Total files:', json.total);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Get File Metadata",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{base_url}}/files/{{file_id}}", "host": ["{{base_url}}"], "path": ["files", "{{file_id}}"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "console.log('Metadata:', pm.response.json());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Get Download URL",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/files/{{file_id}}/download-url?expires_in=300",
+          "host": ["{{base_url}}"],
+          "path": ["files", "{{file_id}}", "download-url"],
+          "query": [{ "key": "expires_in", "value": "300" }]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 400', () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));",
+              "console.log('Download response:', pm.response.json());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Delete File",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{base_url}}/files/{{file_id}}", "host": ["{{base_url}}"], "path": ["files", "{{file_id}}"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Deleted', () => pm.expect(pm.response.json().status).to.equal('deleted'));",
+              "console.log('Deleted file_id:', pm.response.json().file_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AUTH TEST - Invalid Key (expect 401)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-api-key", "value": "wrong_key_here" }
+        ],
+        "url": { "raw": "{{base_url}}/files", "host": ["{{base_url}}"], "path": ["files"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Rejects invalid key with 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
