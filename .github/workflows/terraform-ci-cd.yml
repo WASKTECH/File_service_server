@@ -1,0 +1,100 @@
+name: Terraform Infrastructure CI/CD
+
+on:
+  push:
+    branches: [ main, staging, dev ]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-ci-cd.yml'
+  pull_request:
+    branches: [ main, staging, dev ]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-ci-cd.yml'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform-checks:
+    name: Terraform Format, Validate & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.0
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Initialize Root Terraform
+        run: |
+          cd terraform
+          terraform init -backend=false
+          terraform validate
+
+  terraform-plan:
+    name: Terraform Plan
+    needs: terraform-checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, staging, production]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Initialize Environment Terraform
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform plan -no-color -out=tfplan
+
+  terraform-apply:
+    name: Terraform Apply
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Apply Infrastructure (Production)
+        run: |
+          cd terraform/environments/production
+          terraform init
+          terraform apply -auto-approve

@@ -1,0 +1,114 @@
+name: Application Build, Scan & Deploy to ECS Fargate
+
+on:
+  push:
+    branches: [ main, staging ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  test-and-scan:
+    name: Run Unit Tests & Security Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest Suite
+        run: |
+          pytest --cov=app --cov-report=term-missing
+
+  build-and-deploy:
+    name: Build Docker Image & Deploy to ECS
+    needs: test-and-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Environment Variables
+        id: env-name
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "ENV=production" >> $GITHUB_OUTPUT
+            echo "ECR_REPO=wasktech-file-service-api-production" >> $GITHUB_OUTPUT
+            echo "ECS_SERVICE=wasktech-file-service-production-service" >> $GITHUB_OUTPUT
+            echo "ECS_CLUSTER=wasktech-file-service-production-cluster" >> $GITHUB_OUTPUT
+          else
+            echo "ENV=staging" >> $GITHUB_OUTPUT
+            echo "ECR_REPO=wasktech-file-service-api-staging" >> $GITHUB_OUTPUT
+            echo "ECS_SERVICE=wasktech-file-service-staging-service" >> $GITHUB_OUTPUT
+            echo "ECS_CLUSTER=wasktech-file-service-staging-cluster" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag & Push Image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.env-name.outputs.ECR_REPO }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Download Task Definition
+        run: |
+          aws ecs describe-task-definition --task-definition wasktech-file-service-${{ steps.env-name.outputs.ENV }}-task --query taskDefinition > task-def.json
+
+      - name: Fill in New Image URI in Task Definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: api
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ steps.env-name.outputs.ECR_REPO }}:${{ github.sha }}
+
+      - name: Deploy Amazon ECS Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-def.task-definition }}
+          service: ${{ steps.env-name.outputs.ECS_SERVICE }}
+          cluster: ${{ steps.env-name.outputs.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Health Check Probe
+        run: |
+          ALB_URL=$(aws elbv2 describe-load-balancers --names wasktech-file-service-${{ steps.env-name.outputs.ENV }}-alb --query "LoadBalancers[0].DNSName" --output text)
+          echo "Testing health endpoint at http://$ALB_URL/api/v1/health..."
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_URL/api/v1/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed with HTTP 200 OK!"
+              exit 0
+            fi
+            echo "Attempt $i failed with status $STATUS. Retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 10 attempts!"
+          exit 1
