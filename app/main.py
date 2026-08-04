@@ -5,23 +5,24 @@ Initializes middleware, exception handlers, database tables, and API V1 routers.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.logging import setup_logging, logger, RequestIdMiddleware
 from app.core.exceptions import (
     AppBaseException,
     app_exception_handler,
     http_exception_handler,
-    validation_exception_handler,
     unhandled_exception_handler,
+    validation_exception_handler,
 )
-from app.db.session import engine
+from app.core.logging import RequestIdMiddleware, logger, setup_logging
 from app.db.base import Base
-from app.api.v1.router import api_router
+from app.db.session import engine
 
 # Setup structured logging
 setup_logging()

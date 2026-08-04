@@ -3,7 +3,7 @@ data "aws_region" "current" {}
 
 locals {
   final_bucket_name = var.bucket_name != "" ? var.bucket_name : "${var.project_name}-storage-${var.environment}-${data.aws_caller_identity.current.account_id}"
-  logs_bucket_name   = "${var.project_name}-logs-${var.environment}-${data.aws_caller_identity.current.account_id}"
+  logs_bucket_name  = "${var.project_name}-logs-${var.environment}-${data.aws_caller_identity.current.account_id}"
 }
 
 # S3 Access Logs Bucket

@@ -2,19 +2,20 @@
 REST API endpoints for file management operations.
 """
 
-from typing import Optional
+
 from fastapi import APIRouter, Depends, Query, status
+
 from app.dependencies.deps import get_current_app, get_file_service
 from app.models.app_model import App
-from app.services.file_service import FileService
 from app.schemas.common import APIResponse, PaginatedData
 from app.schemas.file_schemas import (
+    ConfirmResponse,
+    DownloadUrlResponse,
+    FileResponse,
     UploadRequest,
     UploadUrlResponse,
-    ConfirmResponse,
-    FileResponse,
-    DownloadUrlResponse,
 )
+from app.services.file_service import FileService
 
 router = APIRouter(prefix="/files", tags=["Files"])
 
@@ -57,8 +58,8 @@ def confirm_upload(
     description="Retrieve paginated file metadata belonging to the authenticated application.",
 )
 def list_files(
-    owner_id: Optional[str] = Query(None, description="Filter by end-user ID"),
-    status: Optional[str] = Query("COMPLETED", description="Filter by status: PENDING, COMPLETED, FAILED, or ALL"),
+    owner_id: str | None = Query(None, description="Filter by end-user ID"),
+    status: str | None = Query("COMPLETED", description="Filter by status: PENDING, COMPLETED, FAILED, or ALL"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     current_app: App = Depends(get_current_app),
@@ -97,7 +98,7 @@ def get_file_metadata(
 )
 def get_download_url(
     file_uuid: str,
-    expires_in: Optional[int] = Query(
+    expires_in: int | None = Query(
         300, ge=60, le=86400, description="URL validity duration in seconds (min 60s, max 24 hrs)"
     ),
     current_app: App = Depends(get_current_app),

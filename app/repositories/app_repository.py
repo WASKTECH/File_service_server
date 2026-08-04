@@ -2,10 +2,11 @@
 Repository for App database access operations.
 """
 
-from typing import Optional
+
 from sqlalchemy.orm import Session
+
+from app.core.security import hash_api_key
 from app.models.app_model import App
-from app.core.security import hash_api_key, verify_api_key
 
 
 class AppRepository:
@@ -14,11 +15,11 @@ class AppRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_by_id(self, app_id: str) -> Optional[App]:
+    def get_by_id(self, app_id: str) -> App | None:
         """Fetch App by its unique identifier string."""
         return self.db.query(App).filter(App.id == app_id).first()
 
-    def get_by_api_key(self, api_key: str) -> Optional[App]:
+    def get_by_api_key(self, api_key: str) -> App | None:
         """
         Lookup App matching a raw API key.
 

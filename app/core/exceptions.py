@@ -4,10 +4,11 @@ Custom application exceptions and FastAPI exception handlers.
 Provides uniform error response JSON structures across all endpoints.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
+
 from fastapi import Request, status
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -19,7 +20,7 @@ class AppBaseException(Exception):
         message: str,
         code: str = "INTERNAL_ERROR",
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         self.message = message
         self.code = code
@@ -73,7 +74,7 @@ class S3OperationError(AppBaseException):
         )
 
 
-def build_error_response(status_code: int, code: str, message: str, details: Optional[Any] = None) -> JSONResponse:
+def build_error_response(status_code: int, code: str, message: str, details: Any | None = None) -> JSONResponse:
     """Construct standard error JSON envelope."""
     return JSONResponse(
         status_code=status_code,

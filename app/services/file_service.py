@@ -2,30 +2,28 @@
 Business logic service orchestrating File metadata and S3 storage operations.
 """
 
-import uuid
 import math
+import uuid
 from pathlib import Path
-from typing import Tuple, List, Optional
-from datetime import datetime, timezone
 
 from app.core.config import settings
 from app.core.exceptions import (
+    AppBaseException,
     FileNotFoundError,
     InvalidFileTypeError,
-    AppBaseException,
 )
 from app.models.app_model import App
-from app.models.file_record import FileRecord, FileStatus
+from app.models.file_record import FileStatus
 from app.repositories.file_repository import FileRepository
-from app.services.s3_service import S3Service
+from app.schemas.common import PaginatedData, PaginationMeta
 from app.schemas.file_schemas import (
-    UploadRequest,
-    UploadUrlResponse,
     ConfirmResponse,
     DownloadUrlResponse,
     FileResponse,
+    UploadRequest,
+    UploadUrlResponse,
 )
-from app.schemas.common import PaginatedData, PaginationMeta
+from app.services.s3_service import S3Service
 
 
 class FileService:
@@ -135,7 +133,7 @@ class FileService:
             raise FileNotFoundError()
         return FileResponse.model_validate(record)
 
-    def get_download_url(self, app: App, file_uuid: str, expires_in: Optional[int] = None) -> DownloadUrlResponse:
+    def get_download_url(self, app: App, file_uuid: str, expires_in: int | None = None) -> DownloadUrlResponse:
         """Generate presigned download URL for COMPLETED file."""
         record = self.file_repo.get_by_uuid_and_app(uuid_str=file_uuid, app_id=app.id)
         if not record:
@@ -164,8 +162,8 @@ class FileService:
     def list_files(
         self,
         app: App,
-        owner_id: Optional[str] = None,
-        status: Optional[str] = "COMPLETED",
+        owner_id: str | None = None,
+        status: str | None = "COMPLETED",
         page: int = 1,
         page_size: int = 20,
     ) -> PaginatedData[FileResponse]:

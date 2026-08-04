@@ -7,8 +7,8 @@ module "root" {
   vpc_cidr                  = var.vpc_cidr
   availability_zones        = var.availability_zones
   enable_single_nat_gateway = var.enable_single_nat_gateway
-  db_instance_class        = var.db_instance_class
-  db_multi_az              = var.db_multi_az
+  db_instance_class         = var.db_instance_class
+  db_multi_az               = var.db_multi_az
   ecs_cpu                   = var.ecs_cpu
   ecs_memory                = var.ecs_memory
   ecs_desired_count         = var.ecs_desired_count

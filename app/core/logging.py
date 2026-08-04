@@ -5,8 +5,10 @@ Production structured logging configuration with Request ID tracking.
 import logging
 import sys
 import uuid
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+
 from app.core.config import settings
 
 

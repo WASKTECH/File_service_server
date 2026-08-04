@@ -126,22 +126,22 @@ module "route53" {
 module "ecs" {
   source = "./modules/ecs"
 
-  environment             = var.environment
-  project_name            = var.project_name
-  aws_region              = var.aws_region
-  container_image         = local.container_image
-  cpu                     = var.ecs_cpu
-  memory                  = var.ecs_memory
-  desired_count           = var.ecs_desired_count
-  min_capacity            = var.ecs_min_capacity
-  max_capacity            = var.ecs_max_capacity
-  private_app_subnet_ids  = module.networking.private_app_subnet_ids
-  ecs_security_group_id   = module.security.ecs_security_group_id
-  target_group_arn        = module.alb.target_group_arn
-  ecs_execution_role_arn  = module.iam.ecs_execution_role_arn
-  ecs_task_role_arn       = module.iam.ecs_task_role_arn
-  s3_bucket_name          = module.s3.bucket_id
-  secrets_arn             = module.secrets.secret_arn
+  environment            = var.environment
+  project_name           = var.project_name
+  aws_region             = var.aws_region
+  container_image        = local.container_image
+  cpu                    = var.ecs_cpu
+  memory                 = var.ecs_memory
+  desired_count          = var.ecs_desired_count
+  min_capacity           = var.ecs_min_capacity
+  max_capacity           = var.ecs_max_capacity
+  private_app_subnet_ids = module.networking.private_app_subnet_ids
+  ecs_security_group_id  = module.security.ecs_security_group_id
+  target_group_arn       = module.alb.target_group_arn
+  ecs_execution_role_arn = module.iam.ecs_execution_role_arn
+  ecs_task_role_arn      = module.iam.ecs_task_role_arn
+  s3_bucket_name         = module.s3.bucket_id
+  secrets_arn            = module.secrets.secret_arn
 
   tags = local.common_tags
 }

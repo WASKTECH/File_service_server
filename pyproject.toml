@@ -1,0 +1,8 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+# B008: Depends() in function defaults is idiomatic FastAPI dependency injection
+# BLE001: Catching broad Exception is intentional in health check endpoints
+ignore = ["B008", "BLE001"]

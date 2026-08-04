@@ -102,12 +102,12 @@ resource "aws_ecs_task_definition" "main" {
 
 # ECS Service
 resource "aws_ecs_service" "main" {
-  name                               = "${var.project_name}-${var.environment}-service"
-  cluster                            = aws_ecs_cluster.main.id
-  task_definition                    = aws_ecs_task_definition.main.arn
-  desired_count                      = var.desired_count
-  launch_type                        = "FARGATE"
-  enable_execute_command             = true
+  name                              = "${var.project_name}-${var.environment}-service"
+  cluster                           = aws_ecs_cluster.main.id
+  task_definition                   = aws_ecs_task_definition.main.arn
+  desired_count                     = var.desired_count
+  launch_type                       = "FARGATE"
+  enable_execute_command            = true
   health_check_grace_period_seconds = 60
 
   deployment_minimum_healthy_percent = 100

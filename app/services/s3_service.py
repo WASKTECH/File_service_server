@@ -2,9 +2,11 @@
 Service wrapper around AWS S3 client using boto3.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any
+
 import boto3
 from botocore.exceptions import ClientError
+
 from app.core.config import settings
 from app.core.exceptions import S3OperationError
 from app.core.logging import logger
@@ -13,7 +15,7 @@ from app.core.logging import logger
 class S3Service:
     """Manages AWS S3 presigned URL generation and object verification."""
 
-    def __init__(self, s3_client=None, bucket_name: Optional[str] = None):
+    def __init__(self, s3_client=None, bucket_name: str | None = None):
         self.bucket = bucket_name or settings.S3_BUCKET
         if s3_client:
             self.client = s3_client
@@ -66,7 +68,7 @@ class S3Service:
             logger.error(f"Failed to generate S3 download URL: {e}")
             raise S3OperationError("Could not generate presigned download URL")
 
-    def head_object(self, key: str) -> Optional[Dict[str, Any]]:
+    def head_object(self, key: str) -> dict[str, Any] | None:
         """
         Query S3 object metadata.
 
