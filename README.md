@@ -84,6 +84,21 @@ Each consuming application is isolated across five distinct security layers:
 
 ---
 
+## 📚 Documentation Index
+
+Comprehensive documentation for developers, DevOps, and operational teams is available in the [`docs/`](file:///c:/Users/eddie/OneDrive/Documents/File_service_server/docs) directory and `terraform/`:
+
+| Document | Link | Audience | Contents |
+| :--- | :--- | :--- | :--- |
+| **System Architecture** | [ARCHITECTURE.md](file:///c:/Users/eddie/OneDrive/Documents/File_service_server/docs/ARCHITECTURE.md) | Architects / Leads | AWS topology, module graph, network isolation, 4-layer defense-in-depth |
+| **Deployment Guide** | [DEPLOYMENT_GUIDE.md](file:///c:/Users/eddie/OneDrive/Documents/File_service_server/docs/DEPLOYMENT_GUIDE.md) | DevOps / Developers | Step-by-step AWS deployment, Docker ➔ ECR ➔ ECS, CI/CD GitHub Actions setup |
+| **Operational Runbook** | [OPERATIONAL_RUNBOOK.md](file:///c:/Users/eddie/OneDrive/Documents/File_service_server/docs/OPERATIONAL_RUNBOOK.md) | Operations / On-Call | Day-2 ops, health checks, database queries, secrets rotation, 4 incident playbooks |
+| **Disaster Recovery** | [DISASTER_RECOVERY.md](file:///c:/Users/eddie/OneDrive/Documents/File_service_server/docs/DISASTER_RECOVERY.md) | Security / Reliability | RPO/RTO targets, 7 recovery scenarios (database failure, data corruption, S3 delete) |
+| **Cost Estimation** | [COST_ESTIMATION.md](file:///c:/Users/eddie/OneDrive/Documents/File_service_server/docs/COST_ESTIMATION.md) | CTO / Finance | AWS service cost breakdowns ($101/mo dev vs $619/mo prod), optimization tips |
+| **Terraform Reference** | [terraform/README.md](file:///c:/Users/eddie/OneDrive/Documents/File_service_server/terraform/README.md) | Infrastructure Engineers | All 12 IaC modules, variable definitions, outputs, local vs remote state setup |
+
+---
+
 ## 📁 Repository Structure
 
 ```
