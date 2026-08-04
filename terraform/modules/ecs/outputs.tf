@@ -35,5 +35,5 @@ output "task_definition_family" {
 
 output "log_group_name" {
   description = "Name of the CloudWatch Log Group for ECS"
-  value       = aws_cloudwatch_log_group.ecs.name
+  value       = "/ecs/${var.project_name}-${var.environment}"
 }

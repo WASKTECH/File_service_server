@@ -49,7 +49,7 @@ resource "aws_iam_policy" "ecs_execution_secrets" {
         Action = [
           "kms:Decrypt"
         ]
-        Resource = [var.secrets_kms_key_arn]
+        Resource = "*"
       }
     ]
   })
@@ -114,7 +114,7 @@ resource "aws_iam_policy" "ecs_task_s3" {
           "kms:GenerateDataKey",
           "kms:DescribeKey"
         ]
-        Resource = [var.s3_kms_key_arn]
+        Resource = "*"
       },
       {
         Effect = "Allow"

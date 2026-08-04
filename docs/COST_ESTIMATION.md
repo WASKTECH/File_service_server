@@ -1,94 +1,121 @@
-# 💰 AWS Monthly Cost Estimation - WASK File Service Infrastructure
+# 💰 AWS Monthly Cost Estimation — WASK File Service Infrastructure
 
-This document provides estimated monthly AWS costs for each environment tier. Costs are based on **US-East-1 (N. Virginia)** pricing as of August 2026 and represent on-demand pricing without Savings Plans or Reserved Instances.
-
----
-
-## 📊 Dev Environment (Minimal Footprint)
-
-| AWS Service | Configuration | Est. Monthly Cost |
-| :--- | :--- | ---: |
-| **VPC / Networking** | 1 NAT Gateway + 1 Elastic IP | $35.00 |
-| **Application Load Balancer** | 1 ALB (low traffic) | $18.00 |
-| **ECS Fargate** | 1 Task × 0.5 vCPU × 1 GB RAM | $18.00 |
-| **Amazon RDS PostgreSQL** | db.t4g.micro, Single-AZ, 20 GB gp3 | $15.00 |
-| **Amazon S3** | 10 GB storage, low request volume | $2.00 |
-| **AWS KMS** | 3 keys (S3, RDS, Secrets) | $3.00 |
-| **Amazon ECR** | < 5 GB image storage | $0.50 |
-| **CloudWatch** | Logs (5 GB), Dashboard, 4 Alarms | $8.00 |
-| **Secrets Manager** | 1 secret, low retrieval | $0.50 |
-| **Data Transfer** | Minimal (< 5 GB outbound) | $1.00 |
-| | **Total Dev Estimate** | **~$101/mo** |
+This document provides estimated monthly AWS costs for each environment tier. Costs are based on **US-East-1 (N. Virginia)** pricing as of August 2026 and represent on-demand pricing without Reserved Instance discounts.
 
 ---
 
-## 📊 Staging Environment (Moderate Footprint)
+## 📊 Cost Summary by Environment
 
-| AWS Service | Configuration | Est. Monthly Cost |
-| :--- | :--- | ---: |
-| **VPC / Networking** | 1 NAT Gateway + 1 Elastic IP | $35.00 |
-| **Application Load Balancer** | 1 ALB (moderate traffic) | $22.00 |
-| **ECS Fargate** | 2 Tasks × 0.5 vCPU × 1 GB RAM | $36.00 |
-| **Amazon RDS PostgreSQL** | db.t4g.small, Single-AZ, 20 GB gp3 | $30.00 |
-| **Amazon S3** | 50 GB storage, moderate requests | $5.00 |
-| **AWS KMS** | 3 keys | $3.00 |
-| **Amazon ECR** | < 10 GB image storage | $1.00 |
-| **CloudWatch** | Logs (10 GB), Dashboard, 4 Alarms | $12.00 |
-| **Secrets Manager** | 1 secret | $0.50 |
-| **Data Transfer** | ~10 GB outbound | $1.00 |
-| | **Total Staging Estimate** | **~$146/mo** |
+| Environment | Monthly Estimate | Annual Estimate | Key Difference |
+|:---|:---|:---|:---|
+| **Dev** | **~$101/month** | ~$1,212/year | Single NAT, single task, micro DB |
+| **Staging** | **~$101/month** | ~$1,212/year | Same as dev |
+| **Production** | **~$619/month** | ~$7,428/year | Multi-AZ, 2 NATs, 2 tasks, small DB |
 
 ---
 
-## 📊 Production Environment (Full HA Footprint)
+## 🧾 Detailed Cost Breakdown — Dev Environment
 
-| AWS Service | Configuration | Est. Monthly Cost |
-| :--- | :--- | ---: |
-| **VPC / Networking** | 2 NAT Gateways + 2 Elastic IPs | $70.00 |
-| **Application Load Balancer** | 1 ALB (production traffic) | $30.00 |
-| **ECS Fargate** | 2–10 Tasks × 1 vCPU × 2 GB RAM (avg 3) | $108.00 |
-| **Amazon RDS PostgreSQL** | db.r6g.large, Multi-AZ, 20–100 GB gp3 | $340.00 |
-| **Amazon S3** | 500 GB storage, high request volume, IT | $18.00 |
-| **AWS KMS** | 3 keys (higher API call volume) | $5.00 |
-| **Amazon ECR** | < 15 GB image storage | $1.50 |
-| **CloudWatch** | Logs (30 GB), Dashboard, 4 Alarms, Insights | $35.00 |
-| **Secrets Manager** | 1 secret, higher retrieval | $1.00 |
-| **Route53** | Hosted Zone + DNS queries | $1.50 |
-| **ACM** | Free SSL Certificate | $0.00 |
-| **Data Transfer** | ~100 GB outbound | $9.00 |
-| | **Total Production Estimate** | **~$619/mo** |
-
----
-
-## 📉 Cost Optimization Recommendations
-
-### Immediate Savings
-
-| Strategy | Savings | Impact |
-| :--- | :--- | :--- |
-| **S3 VPC Gateway Endpoint** | Already implemented | Eliminates NAT data charges for S3 traffic |
-| **ECS Fargate Spot (Dev/Staging)** | Up to 70% on compute | Risk of 2-minute interruption notices |
-| **RDS Reserved Instance (1yr)** | ~35-40% | Commit to 1-year db.r6g.large reservation |
-| **S3 Intelligent-Tiering** | Already implemented | Auto-tiering infrequently accessed objects |
-| **Single NAT Gateway (Dev)** | Already implemented | Saves ~$35/mo per removed NAT Gateway |
-
-### Future Savings at Scale
-
-| Strategy | When | Savings |
-| :--- | :--- | :--- |
-| **Savings Plans (Compute)** | After 3 months usage data | 20-40% on Fargate compute |
-| **S3 Glacier Archival** | When compliance allows old files | 90%+ for archived objects |
-| **Aurora Serverless v2** | If DB has variable workloads | Pay-per-query scaling |
+| AWS Service | Resource | Specification | Monthly Cost |
+|:---|:---|:---|---:|
+| **NAT Gateway** | 1x NAT Gateway | Hourly + data processing | $34.00 |
+| **ALB** | Application Load Balancer | Hourly + LCU charges | $18.00 |
+| **ECS Fargate** | 1 task (0.5 vCPU / 1 GB) | 24/7 uptime | $19.00 |
+| **RDS PostgreSQL** | db.t4g.micro (Single-AZ) | 20 GB gp3 storage | $13.00 |
+| **S3** | Storage + Requests | Minimal in dev | $1.00 |
+| **Secrets Manager** | 1 secret | Per-secret + API calls | $0.40 |
+| **ECR** | Docker image storage | ~500 MB stored | $0.50 |
+| **CloudWatch** | Dashboard + 4 alarms | Metrics + alarms | $3.00 |
+| **Elastic IP** | 1 (for NAT Gateway) | Static allocation | $3.60 |
+| **Data Transfer** | Internet egress | ~5 GB/month estimate | $5.00 |
+| **VPC Endpoint** | S3 Gateway Endpoint | **Free** | $0.00 |
+| | | **Total** | **~$101** |
 
 ---
 
-## 📋 Monthly Grand Total Summary
+## 🧾 Detailed Cost Breakdown — Production Environment
 
-| Environment | Est. Monthly Cost |
-| :--- | ---: |
-| **Development** | ~$101 |
-| **Staging** | ~$146 |
-| **Production** | ~$619 |
-| **Total (All Environments)** | **~$866/mo** |
+| AWS Service | Resource | Specification | Monthly Cost |
+|:---|:---|:---|---:|
+| **NAT Gateway** | 2x NAT Gateways (Multi-AZ) | Hourly + data processing | $68.00 |
+| **ALB** | Application Load Balancer | Hourly + higher LCU | $22.00 |
+| **ECS Fargate** | 2 tasks (1 vCPU / 2 GB each) | 24/7, auto-scales to 10 | $75.00 |
+| **RDS PostgreSQL** | db.t4g.small (Multi-AZ) | 50 GB gp3 storage | $52.00 |
+| **ACM** | SSL Certificate | **Free** (with ALB) | $0.00 |
+| **Route53** | Hosted Zone + DNS queries | 1 zone + alias record | $0.50 |
+| **S3** | Storage + Requests | ~100 GB estimate | $5.00 |
+| **Secrets Manager** | 1 secret | Per-secret + API calls | $0.40 |
+| **ECR** | Docker image storage | ~1 GB stored | $1.00 |
+| **CloudWatch** | Dashboard + 4 alarms + logs | Metrics + alarms + ingestion | $5.00 |
+| **Elastic IPs** | 2 (for NAT Gateways) | Static allocation | $7.20 |
+| **Data Transfer** | Internet egress | ~50 GB/month estimate | $20.00 |
+| **VPC Endpoint** | S3 Gateway Endpoint | **Free** | $0.00 |
+| | | **Total** | **~$619** |
 
-> **Note**: These estimates are approximate and will vary based on actual traffic volume, data storage growth, data transfer patterns, and auto scaling activity. Use **AWS Cost Explorer** and **AWS Budgets** to set alerts on spending thresholds.
+---
+
+## 💡 Cost Optimization Strategies
+
+### Immediate Savings (No Architecture Changes)
+
+| Strategy | Savings | Implementation |
+|:---|:---|:---|
+| **Destroy dev when not in use** | Up to 100% of dev costs | `terraform destroy` after hours |
+| **RDS Reserved Instance (1yr)** | ~40% on RDS | Purchase via AWS Console |
+| **Fargate Savings Plans (1yr)** | ~20% on ECS | Purchase via AWS Console |
+| **NAT Gateway scheduling** | ~60% of NAT cost | Stop/start NAT during business hours only |
+
+### Architecture-Level Optimizations
+
+| Strategy | Savings | Trade-off |
+|:---|:---|:---|
+| **Remove NAT Gateway (dev)** | ~$34/month | ECS tasks need VPC endpoints for ECR/Secrets instead |
+| **Use Fargate Spot (dev)** | ~70% on ECS | Tasks may be interrupted with 2-min warning |
+| **Single-AZ production** | ~$150/month | Reduced availability (not recommended) |
+| **Smaller RDS instance** | ~$10/month | Reduced query performance |
+
+### Free Tier Eligibility (First 12 Months)
+
+| Service | Free Tier Allowance |
+|:---|:---|
+| **RDS** | 750 hours/month of db.t4g.micro |
+| **S3** | 5 GB Standard storage |
+| **ECR** | 500 MB storage |
+| **CloudWatch** | 10 alarms, 3 dashboards |
+
+If your AWS account is within the first 12 months, the dev environment cost drops to approximately **~$58/month** (NAT Gateway + ALB + Data Transfer).
+
+---
+
+## 📈 Cost Scaling Projections
+
+As usage grows, these are the primary cost drivers:
+
+| Growth Trigger | Impact | Estimated Additional Cost |
+|:---|:---|:---|
+| **+1 ECS task (auto-scale)** | More compute | +$38/month (1 vCPU / 2 GB) |
+| **+100 GB S3 storage** | More files stored | +$2.30/month |
+| **+1M S3 PUT requests** | High upload volume | +$5.00/month |
+| **+100 GB data transfer** | More downloads | +$9.00/month |
+| **RDS scale to db.t4g.medium** | More DB capacity | +$55/month |
+
+---
+
+## 🏷️ Cost Allocation Tags
+
+All resources are tagged for cost tracking in AWS Cost Explorer:
+
+```hcl
+tags = {
+  Environment = "dev"          # Filter by environment
+  Project     = "wasktech-file-service"  # Filter by project
+  Owner       = "DevOps Team"  # Filter by team
+  ManagedBy   = "Terraform"    # Identify IaC-managed resources
+  CostCenter  = "Engineering-Dev"  # Cost allocation
+}
+```
+
+To view costs by tag in AWS Console:
+1. Navigate to **AWS Billing → Cost Explorer**
+2. Group by **Tag: Project** → `wasktech-file-service`
+3. Filter by **Tag: Environment** → `dev`, `staging`, or `production`

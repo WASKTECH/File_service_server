@@ -6,25 +6,6 @@ locals {
   logs_bucket_name   = "${var.project_name}-logs-${var.environment}-${data.aws_caller_identity.current.account_id}"
 }
 
-# KMS Key for S3 Encryption
-resource "aws_kms_key" "s3" {
-  description             = "KMS Key for ${local.final_bucket_name}"
-  deletion_window_in_days = 30
-  enable_key_rotation     = true
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.project_name}-${var.environment}-s3-kms-key"
-    }
-  )
-}
-
-resource "aws_kms_alias" "s3" {
-  name          = "alias/${var.project_name}-${var.environment}-s3"
-  target_key_id = aws_kms_key.s3.key_id
-}
-
 # S3 Access Logs Bucket
 resource "aws_s3_bucket" "logs" {
   bucket        = local.logs_bucket_name
@@ -82,16 +63,14 @@ resource "aws_s3_bucket_public_access_block" "main" {
   restrict_public_buckets = true
 }
 
-# Server-Side SSE-KMS Encryption
+# Server-Side Encryption (AES256)
 resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
   bucket = aws_s3_bucket.main.id
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.s3.arn
-      sse_algorithm     = "aws:kms"
+      sse_algorithm = "AES256"
     }
-    bucket_key_enabled = true
   }
 }
 

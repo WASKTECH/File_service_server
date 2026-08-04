@@ -1,251 +1,306 @@
-# 📖 Operational Runbook - WASK Multi-Tenant File Service API
+# 📖 Operational Runbook — WASK Multi-Tenant File Service API
 
-This runbook provides step-by-step operating procedures for day-2 operations, monitoring, debugging, database management, and incident response.
+This runbook provides step-by-step procedures for day-2 operations, monitoring, debugging, incident response, database management, and common troubleshooting scenarios.
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Common Day-2 Operations](#common-day-2-operations)
-2. [ECS Container Debugging](#ecs-container-debugging)
-3. [CloudWatch Alarm Handling](#cloudwatch-alarm-handling)
-4. [Database Operations](#database-operations)
-5. [Application Log Inspection](#application-log-inspection)
-6. [Scaling Operations](#scaling-operations)
-7. [Secret Rotation](#secret-rotation)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Validation Checklist](#validation-checklist)
-10. [GitHub Secrets Configuration](#github-secrets-configuration)
+1. [Service Endpoints & Access](#-service-endpoints--access)
+2. [Health Monitoring](#-health-monitoring)
+3. [ECS Operations](#-ecs-operations)
+4. [Database Operations](#-database-operations)
+5. [S3 Storage Operations](#-s3-storage-operations)
+6. [Secrets Management](#-secrets-management)
+7. [Incident Response Playbooks](#-incident-response-playbooks)
+8. [CloudWatch Alarms Reference](#-cloudwatch-alarms-reference)
+9. [Log Analysis](#-log-analysis)
+10. [Cost Monitoring](#-cost-monitoring)
 
 ---
 
-## Common Day-2 Operations
+## 🌐 Service Endpoints & Access
 
-### Force ECS Redeployment (Rolling Update)
+### Environment URLs
 
-Use this to pick up new container images or refreshed secrets:
+| Environment | API Endpoint | CloudWatch Dashboard |
+|:---|:---|:---|
+| **Dev** | `http://<dev-alb-dns>/api/v1` | `wasktech-file-service-dev-dashboard` |
+| **Staging** | `http://<staging-alb-dns>/api/v1` | `wasktech-file-service-staging-dashboard` |
+| **Production** | `http://<prod-alb-dns>/api/v1` | `wasktech-file-service-production-dashboard` |
+
+### Key Resource Names (Dev)
+
+```
+ECS Cluster:   wasktech-file-service-dev-cluster
+ECS Service:   wasktech-file-service-dev-service
+ALB:           wasktech-file-service-dev-alb
+RDS Instance:  wasktech-file-service-dev-db
+ECR Repo:      wasktech-file-service-api-dev
+S3 Bucket:     wasktech-file-service-storage-dev-<account-id>
+Secret:        wasktech-file-service/dev/app-secrets
+```
+
+---
+
+## 🩺 Health Monitoring
+
+### Quick Health Check
+
+```bash
+# Check API health
+curl -s http://<ALB_DNS>/api/v1/health | jq .
+
+# Expected response:
+# {"status": "healthy", "service": "File Service API"}
+```
+
+### ECS Service Status
+
+```bash
+# Check running tasks
+aws ecs describe-services \
+    --cluster wasktech-file-service-dev-cluster \
+    --services wasktech-file-service-dev-service \
+    --query "services[0].{Status:status,Running:runningCount,Desired:desiredCount,Pending:pendingCount}" \
+    --output table
+
+# List individual tasks
+aws ecs list-tasks \
+    --cluster wasktech-file-service-dev-cluster \
+    --service-name wasktech-file-service-dev-service \
+    --output table
+```
+
+### ALB Target Health
+
+```bash
+# Get Target Group ARN
+TG_ARN=$(aws elbv2 describe-target-groups \
+    --names wasktech-file-service-dev-tg \
+    --query "TargetGroups[0].TargetGroupArn" \
+    --output text)
+
+# Check target health
+aws elbv2 describe-target-health \
+    --target-group-arn $TG_ARN \
+    --output table
+```
+
+### RDS Instance Status
+
+```bash
+aws rds describe-db-instances \
+    --db-instance-identifier wasktech-file-service-dev-db \
+    --query "DBInstances[0].{Status:DBInstanceStatus,Engine:Engine,Version:EngineVersion,Class:DBInstanceClass,Storage:AllocatedStorage,MultiAZ:MultiAZ}" \
+    --output table
+```
+
+---
+
+## 🐳 ECS Operations
+
+### Force a New Deployment (Rolling Update)
 
 ```bash
 aws ecs update-service \
-    --cluster wasktech-file-service-production-cluster \
-    --service wasktech-file-service-production-service \
+    --cluster wasktech-file-service-dev-cluster \
+    --service wasktech-file-service-dev-service \
     --force-new-deployment \
     --region us-east-1
 ```
 
-### View Running ECS Tasks
+### Scale ECS Tasks Manually
 
 ```bash
-aws ecs list-tasks \
-    --cluster wasktech-file-service-production-cluster \
-    --service-name wasktech-file-service-production-service \
-    --region us-east-1
-```
-
-### Describe a Specific Task
-
-```bash
-aws ecs describe-tasks \
-    --cluster wasktech-file-service-production-cluster \
-    --tasks <TASK_ARN> \
-    --region us-east-1
-```
-
----
-
-## ECS Container Debugging
-
-### ECS Exec (Interactive Shell into Running Container)
-
-ECS Exec is enabled in the service configuration. Use it to connect to a live container for diagnostics:
-
-```bash
-aws ecs execute-command \
-    --cluster wasktech-file-service-production-cluster \
-    --task <TASK_ID> \
-    --container api \
-    --command "/bin/sh" \
-    --interactive \
-    --region us-east-1
-```
-
-> **Note**: Requires `session-manager-plugin` installed locally. Install via: `curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb" && sudo dpkg -i session-manager-plugin.deb`
-
-### Test Health Endpoint from Inside Container
-
-```bash
-# Inside the container after ECS Exec:
-python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/v1/health').read().decode())"
-```
-
-### Check Environment Variables Inside Container
-
-```bash
-# Inside the container:
-env | grep -E "DATABASE_URL|S3_BUCKET|ENVIRONMENT|AWS_REGION"
-```
-
----
-
-## CloudWatch Alarm Handling
-
-### Alarm: `ecs-high-cpu`
-
-**Meaning**: Average ECS CPU utilization exceeded 80% over 2 evaluation periods (10 minutes).
-
-**Response**:
-1. Check if auto scaling has triggered scale-out: `aws application-autoscaling describe-scaling-activities --service-namespace ecs`
-2. Verify running task count: `aws ecs describe-services --cluster <cluster> --services <service> --query "services[0].runningCount"`
-3. If scaling is insufficient, manually set higher `max_capacity` and re-apply Terraform.
-4. Investigate application for CPU-intensive operations (inefficient queries, missing indexes, tight loops).
-
-### Alarm: `ecs-high-memory`
-
-**Meaning**: Average ECS Memory utilization exceeded 80%.
-
-**Response**:
-1. Check for memory leaks using CloudWatch Container Insights.
-2. Consider increasing task memory allocation in `terraform.tfvars` and redeploying.
-3. Examine logs for large payload processing or unbounded collection growth.
-
-### Alarm: `alb-high-5xx`
-
-**Meaning**: More than 10 HTTP 5XX errors returned by targets within 5 minutes.
-
-**Response**:
-1. Check ECS task health: `aws ecs describe-services --cluster <cluster> --services <service>`
-2. Inspect application logs: `aws logs tail /ecs/wasktech-file-service-production --follow`
-3. Verify RDS connectivity - if database is down, containers may return 500s.
-4. Check recent deployments - if a bad deploy caused this, the circuit breaker should auto-rollback.
-
-### Alarm: `rds-low-storage`
-
-**Meaning**: RDS free storage has dropped below 5 GB.
-
-**Response**:
-1. Check current storage: `aws rds describe-db-instances --db-instance-identifier <id> --query "DBInstances[0].{Allocated:AllocatedStorage,Free:FreeStorageSpace}"`
-2. Storage autoscaling should handle this automatically (max 100 GB configured).
-3. If hitting max storage, increase `max_allocated_storage` in Terraform and apply.
-4. Investigate large tables: Connect via ECS Exec and run `SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 10;`
-
----
-
-## Database Operations
-
-### Connect to RDS via ECS Exec
-
-Since RDS is in a private subnet with no direct access, use ECS Exec to tunnel:
-
-```bash
-# 1. Shell into a running container
-aws ecs execute-command --cluster <cluster> --task <task_id> --container api --command "/bin/sh" --interactive
-
-# 2. Inside the container, install psql if needed and connect
-python -c "import os; print(os.environ.get('DATABASE_URL'))"
-# Use the printed DATABASE_URL to connect
-```
-
-### Run Database Migrations
-
-If the application uses Alembic or manual SQL migrations:
-
-```bash
-# Via ECS Exec inside the container:
-alembic upgrade head
-
-# Or execute raw SQL:
-python -c "
-from app.db.session import engine
-from sqlalchemy import text
-with engine.connect() as conn:
-    conn.execute(text('ALTER TABLE files ADD COLUMN IF NOT EXISTS new_col VARCHAR(255)'))
-    conn.commit()
-"
-```
-
-### Create Manual Database Snapshot
-
-```bash
-aws rds create-db-snapshot \
-    --db-instance-identifier wasktech-file-service-production-db \
-    --db-snapshot-identifier pre-migration-$(date +%Y%m%d-%H%M) \
-    --region us-east-1
-```
-
----
-
-## Application Log Inspection
-
-### Stream Live ECS Logs
-
-```bash
-aws logs tail /ecs/wasktech-file-service-production --follow --since 5m
-```
-
-### Search Logs for Errors
-
-```bash
-aws logs filter-log-events \
-    --log-group-name /ecs/wasktech-file-service-production \
-    --filter-pattern "ERROR" \
-    --start-time $(date -d '1 hour ago' +%s000) \
-    --region us-east-1
-```
-
-### Search for Specific Request ID
-
-```bash
-aws logs filter-log-events \
-    --log-group-name /ecs/wasktech-file-service-production \
-    --filter-pattern "request_id=<UUID>" \
-    --region us-east-1
-```
-
-### View ALB Access Logs
-
-ALB access logs are stored in the S3 logs bucket:
-
-```bash
-aws s3 ls s3://wasktech-file-service-logs-production-<ACCOUNT_ID>/alb-access-logs/ --recursive
-aws s3 cp s3://wasktech-file-service-logs-production-<ACCOUNT_ID>/alb-access-logs/<path>/<file>.gz - | gzip -d | head -50
-```
-
----
-
-## Scaling Operations
-
-### Manual Scale-Out
-
-```bash
+# Scale to 3 tasks
 aws ecs update-service \
-    --cluster wasktech-file-service-production-cluster \
-    --service wasktech-file-service-production-service \
-    --desired-count 5 \
-    --region us-east-1
+    --cluster wasktech-file-service-dev-cluster \
+    --service wasktech-file-service-dev-service \
+    --desired-count 3
+
+# Scale back to 1
+aws ecs update-service \
+    --cluster wasktech-file-service-dev-cluster \
+    --service wasktech-file-service-dev-service \
+    --desired-count 1
 ```
 
-### View Auto Scaling Activities
+### View Running Task Details
 
 ```bash
-aws application-autoscaling describe-scaling-activities \
-    --service-namespace ecs \
-    --resource-id service/wasktech-file-service-production-cluster/wasktech-file-service-production-service \
-    --region us-east-1
+# Get task ARN
+TASK_ARN=$(aws ecs list-tasks \
+    --cluster wasktech-file-service-dev-cluster \
+    --service-name wasktech-file-service-dev-service \
+    --query "taskArns[0]" --output text)
+
+# Describe task (including container status, health, network)
+aws ecs describe-tasks \
+    --cluster wasktech-file-service-dev-cluster \
+    --tasks $TASK_ARN \
+    --query "tasks[0].{Status:lastStatus,Health:healthStatus,CPU:cpu,Memory:memory,StartedAt:startedAt}" \
+    --output table
 ```
 
-### Modify Auto Scaling Limits
-
-Update `ecs_min_capacity` and `ecs_max_capacity` in `terraform/environments/production/terraform.tfvars` and run:
+### Stop a Specific Task (Force Restart)
 
 ```bash
-cd terraform/environments/production
-terraform plan -out=scaling.tfplan
-terraform apply scaling.tfplan
+aws ecs stop-task \
+    --cluster wasktech-file-service-dev-cluster \
+    --task $TASK_ARN \
+    --reason "Manual restart for debugging"
+```
+
+ECS will automatically start a replacement task.
+
+### View ECS Task Definition
+
+```bash
+aws ecs describe-task-definition \
+    --task-definition wasktech-file-service-dev-task \
+    --query "taskDefinition.{Family:family,CPU:cpu,Memory:memory,Image:containerDefinitions[0].image}" \
+    --output table
 ```
 
 ---
 
-## Secret Rotation
+## 🗄️ Database Operations
+
+### Connect to RDS via ECS Exec (Production-Safe)
+
+For direct database access, use ECS Exec to open a shell inside the running container:
+
+```bash
+# Enable ECS Exec on the service (one-time)
+aws ecs update-service \
+    --cluster wasktech-file-service-dev-cluster \
+    --service wasktech-file-service-dev-service \
+    --enable-execute-command
+
+# Get task ARN
+TASK_ARN=$(aws ecs list-tasks \
+    --cluster wasktech-file-service-dev-cluster \
+    --query "taskArns[0]" --output text)
+
+# Open interactive shell
+aws ecs execute-command \
+    --cluster wasktech-file-service-dev-cluster \
+    --task $TASK_ARN \
+    --container api \
+    --interactive \
+    --command "/bin/sh"
+
+# Once inside the container, connect to PostgreSQL:
+# python -c "from app.core.config import get_settings; print(get_settings().DATABASE_URL)"
+```
+
+### Common Database Queries
+
+```sql
+-- Count active files by tenant
+SELECT app_id, COUNT(*) as file_count, 
+       SUM(size) as total_bytes
+FROM files 
+WHERE deleted_at IS NULL 
+GROUP BY app_id;
+
+-- List registered tenants
+SELECT id, name, created_at FROM apps ORDER BY created_at;
+
+-- Find failed uploads (stuck in PENDING > 1 hour)
+SELECT uuid, original_filename, app_id, created_at 
+FROM files 
+WHERE status = 'PENDING' 
+  AND created_at < NOW() - INTERVAL '1 hour'
+  AND deleted_at IS NULL;
+
+-- Storage usage by month
+SELECT DATE_TRUNC('month', created_at) as month,
+       COUNT(*) as files_uploaded,
+       SUM(size) as total_bytes
+FROM files 
+WHERE deleted_at IS NULL 
+GROUP BY month 
+ORDER BY month DESC;
+```
+
+### RDS Backup & Restore
+
+```bash
+# Create manual snapshot
+aws rds create-db-snapshot \
+    --db-instance-identifier wasktech-file-service-dev-db \
+    --db-snapshot-identifier manual-backup-$(date +%Y%m%d)
+
+# List available snapshots
+aws rds describe-db-snapshots \
+    --db-instance-identifier wasktech-file-service-dev-db \
+    --query "DBSnapshots[*].{ID:DBSnapshotIdentifier,Status:Status,Created:SnapshotCreateTime}" \
+    --output table
+
+# Point-in-Time Recovery (restore to a new instance)
+aws rds restore-db-instance-to-point-in-time \
+    --source-db-instance-identifier wasktech-file-service-dev-db \
+    --target-db-instance-identifier wasktech-file-service-dev-db-restored \
+    --restore-time "2026-08-04T12:00:00Z"
+```
+
+---
+
+## 📦 S3 Storage Operations
+
+### Check Bucket Contents
+
+```bash
+# Count objects by tenant (app_id prefix)
+aws s3 ls s3://wasktech-file-service-storage-dev-<ACCOUNT_ID>/ --recursive --summarize
+
+# List files for a specific tenant
+aws s3 ls s3://wasktech-file-service-storage-dev-<ACCOUNT_ID>/main_app/
+```
+
+### Recover Deleted Files (Versioning Enabled)
+
+```bash
+# List all versions including delete markers
+aws s3api list-object-versions \
+    --bucket wasktech-file-service-storage-dev-<ACCOUNT_ID> \
+    --prefix "main_app/" \
+    --max-items 20
+
+# Restore by deleting the delete marker
+aws s3api delete-object \
+    --bucket wasktech-file-service-storage-dev-<ACCOUNT_ID> \
+    --key "main_app/file-uuid-filename.pdf" \
+    --version-id "<DELETE_MARKER_VERSION_ID>"
+```
+
+### Check Bucket Storage Size
+
+```bash
+aws cloudwatch get-metric-statistics \
+    --namespace AWS/S3 \
+    --metric-name BucketSizeBytes \
+    --dimensions Name=BucketName,Value=wasktech-file-service-storage-dev-<ACCOUNT_ID> Name=StorageType,Value=StandardStorage \
+    --start-time $(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%S) \
+    --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+    --period 86400 \
+    --statistics Average \
+    --output table
+```
+
+---
+
+## 🔑 Secrets Management
+
+### View Current Secret Keys (Not Values)
+
+```bash
+aws secretsmanager describe-secret \
+    --secret-id "wasktech-file-service/dev/app-secrets" \
+    --output table
+```
 
 ### Rotate Database Password
 
@@ -253,95 +308,202 @@ terraform apply scaling.tfplan
 # 1. Generate new password
 NEW_PASSWORD=$(openssl rand -base64 24)
 
-# 2. Update RDS password
+# 2. Update in Secrets Manager
+aws secretsmanager put-secret-value \
+    --secret-id "wasktech-file-service/dev/app-secrets" \
+    --secret-string "{\"DATABASE_URL\":\"postgresql://fileapi:${NEW_PASSWORD}@<RDS_ENDPOINT>:5432/filedb\",\"POSTGRES_USER\":\"fileapi\",\"POSTGRES_PASSWORD\":\"${NEW_PASSWORD}\",\"POSTGRES_DB\":\"filedb\"}"
+
+# 3. Update RDS master password
 aws rds modify-db-instance \
-    --db-instance-identifier wasktech-file-service-production-db \
+    --db-instance-identifier wasktech-file-service-dev-db \
     --master-user-password "$NEW_PASSWORD" \
     --apply-immediately
 
-# 3. Update Secrets Manager with new DATABASE_URL
-# (Use Terraform or AWS CLI to update the secret)
-
-# 4. Force ECS redeployment to pick up new secrets
+# 4. Force ECS to re-pull secrets
 aws ecs update-service \
-    --cluster wasktech-file-service-production-cluster \
-    --service wasktech-file-service-production-service \
+    --cluster wasktech-file-service-dev-cluster \
+    --service wasktech-file-service-dev-service \
     --force-new-deployment
 ```
 
 ---
 
-## Troubleshooting Guide
+## 🚨 Incident Response Playbooks
 
-### Problem: ECS Tasks Fail to Start (Crash Loop)
+### Playbook 1: ECS Tasks Crashing (0 Running Tasks)
 
-**Diagnosis**:
+**Symptoms**: API returns 502/503, no healthy targets in ALB
+
 ```bash
-# Check stopped task reasons
-aws ecs describe-tasks --cluster <cluster> --tasks <stopped_task_arn> --query "tasks[0].stoppedReason"
+# 1. Check service events for error messages
+aws ecs describe-services \
+    --cluster wasktech-file-service-dev-cluster \
+    --services wasktech-file-service-dev-service \
+    --query "services[0].events[:5]" \
+    --output table
 
-# Check container exit code
-aws ecs describe-tasks --cluster <cluster> --tasks <stopped_task_arn> --query "tasks[0].containers[0].{exitCode:exitCode,reason:reason}"
+# 2. Check the stopped task reason
+TASK_ARN=$(aws ecs list-tasks \
+    --cluster wasktech-file-service-dev-cluster \
+    --desired-status STOPPED \
+    --query "taskArns[0]" --output text)
+
+aws ecs describe-tasks \
+    --cluster wasktech-file-service-dev-cluster \
+    --tasks $TASK_ARN \
+    --query "tasks[0].{StopCode:stopCode,StopReason:stoppedReason,Container:containers[0].{Status:lastStatus,Reason:reason,ExitCode:exitCode}}"
+
+# 3. Common causes:
+#    - Container image not found → Check ECR repo has an image tagged :latest
+#    - Secrets access denied → Check IAM execution role has secretsmanager:GetSecretValue
+#    - OOM killed → Increase memory in terraform.tfvars
+#    - Database connection refused → Check RDS is running and security groups allow 5432
 ```
 
-**Common Causes**:
-- `exitCode: 1`: Application crash. Check CloudWatch logs for Python traceback.
-- `exitCode: 137`: Out of Memory. Increase task memory allocation.
-- `ResourceNotFoundException`: Secrets Manager secret not found. Verify ARN matches.
-- `CannotPullContainerError`: ECR image not found or IAM permissions missing.
+### Playbook 2: High 5XX Error Rate
 
-### Problem: 502 Bad Gateway from ALB
+**Symptoms**: CloudWatch alarm `alb-high-5xx` triggered
 
-**Diagnosis**: ALB cannot reach any healthy targets.
-1. Verify tasks are running: `aws ecs describe-services --cluster <cluster> --services <service>`
-2. Check Target Group health: `aws elbv2 describe-target-health --target-group-arn <tg_arn>`
-3. If all targets are unhealthy, the `/api/v1/health` endpoint is failing. Check application logs.
+```bash
+# 1. Check ALB target health
+aws elbv2 describe-target-health \
+    --target-group-arn <TG_ARN> --output table
 
-### Problem: RDS Connection Timeout
+# 2. Check ECS task health
+aws ecs describe-services \
+    --cluster wasktech-file-service-dev-cluster \
+    --services wasktech-file-service-dev-service \
+    --query "services[0].{Running:runningCount,Desired:desiredCount}"
 
-**Diagnosis**:
-1. Verify RDS instance status: `aws rds describe-db-instances --db-instance-identifier <id> --query "DBInstances[0].DBInstanceStatus"`
-2. Verify security group rules allow ECS → RDS on port 5432.
-3. Verify `DATABASE_URL` in Secrets Manager has the correct RDS endpoint.
+# 3. If tasks are healthy but 5XX persist, check application logs
+# (See Log Analysis section below)
 
-### Problem: S3 Presigned URL Returns AccessDenied
+# 4. If caused by a bad deployment, roll back:
+# Identify the previous task definition revision
+aws ecs list-task-definitions \
+    --family-prefix wasktech-file-service-dev-task \
+    --sort DESC --max-items 5
 
-**Diagnosis**:
-1. Verify ECS Task Role has S3 permissions: `aws iam get-role-policy --role-name <task_role> --policy-name <policy>`
-2. Verify S3 bucket policy doesn't block the operation.
-3. Verify KMS key grants for `kms:GenerateDataKey` and `kms:Decrypt`.
-4. Check if the presigned URL has expired (default 300s).
+# Deploy the previous revision
+aws ecs update-service \
+    --cluster wasktech-file-service-dev-cluster \
+    --service wasktech-file-service-dev-service \
+    --task-definition wasktech-file-service-dev-task:<PREVIOUS_REVISION>
+```
+
+### Playbook 3: RDS Storage Running Low
+
+**Symptoms**: CloudWatch alarm `rds-low-storage` triggered
+
+```bash
+# 1. Check current storage usage
+aws rds describe-db-instances \
+    --db-instance-identifier wasktech-file-service-dev-db \
+    --query "DBInstances[0].{Allocated:AllocatedStorage,FreeStorage:FreeStorageSpace}"
+
+# 2. Clean up stale PENDING records (orphaned upload sessions)
+# Connect to DB and run:
+# DELETE FROM files WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL '7 days';
+
+# 3. If storage consistently low, increase via Terraform:
+# Edit terraform.tfvars: allocated_storage = 50
+# terraform plan && terraform apply
+```
+
+### Playbook 4: Database Connection Failures
+
+**Symptoms**: API returns 500, logs show "connection refused" or "timeout"
+
+```bash
+# 1. Check RDS instance status
+aws rds describe-db-instances \
+    --db-instance-identifier wasktech-file-service-dev-db \
+    --query "DBInstances[0].DBInstanceStatus"
+
+# 2. Verify security group allows ECS → RDS traffic
+aws ec2 describe-security-groups \
+    --group-ids <RDS_SG_ID> \
+    --query "SecurityGroups[0].IpPermissions"
+
+# 3. If RDS is in "storage-full" state, see Playbook 3
+# If RDS is "modifying", wait for the operation to complete
+# If RDS is "failed", restore from snapshot (see Database Operations)
+```
 
 ---
 
-## Validation Checklist
+## 📊 CloudWatch Alarms Reference
 
-Use this checklist after every deployment or infrastructure change:
+| Alarm Name | Metric | Threshold | Period | Description |
+|:---|:---|:---|:---|:---|
+| `*-ecs-high-cpu` | ECS CPU Utilization | > 80% | 5 min | ECS tasks consuming excessive CPU |
+| `*-ecs-high-memory` | ECS Memory Utilization | > 80% | 5 min | ECS tasks consuming excessive memory |
+| `*-alb-high-5xx` | ALB Target 5XX Count | > 10 errors | 5 min | Application returning server errors |
+| `*-rds-low-storage` | RDS Free Storage Space | < 2 GB | 5 min | Database storage critically low |
 
-| # | Check | Command | Expected |
-| :--- | :--- | :--- | :--- |
-| 1 | Health endpoint responds | `curl http://<ALB_DNS>/api/v1/health` | HTTP 200 |
-| 2 | HTTPS redirect works | `curl -I http://<DOMAIN>` | HTTP 301 → HTTPS |
-| 3 | ECS tasks running | `aws ecs describe-services ...` | `runningCount >= desiredCount` |
-| 4 | RDS instance available | `aws rds describe-db-instances ...` | `Status: available` |
-| 5 | S3 bucket accessible | `aws s3 ls s3://<bucket>/` | No access denied |
-| 6 | CloudWatch logs streaming | `aws logs tail /ecs/<env>` | Recent log entries visible |
-| 7 | CloudWatch alarms in OK | `aws cloudwatch describe-alarms ...` | All alarms in `OK` state |
-| 8 | Secrets Manager accessible | `aws secretsmanager get-secret-value --secret-id <arn>` | Returns secret JSON |
-| 9 | ECR image present | `aws ecr describe-images --repository-name <repo>` | Latest image listed |
-| 10 | DNS resolves (if domain) | `nslookup api.wasktech.com` | Points to ALB |
+### View Alarm States
+
+```bash
+aws cloudwatch describe-alarms \
+    --alarm-name-prefix "wasktech-file-service-dev" \
+    --query "MetricAlarms[*].{Name:AlarmName,State:StateValue,Reason:StateReason}" \
+    --output table
+```
 
 ---
 
-## GitHub Secrets Configuration
+## 📝 Log Analysis
 
-Configure the following secrets in your GitHub repository (`Settings → Secrets and variables → Actions`):
+### View ECS Application Logs
 
-| Secret Name | Description | Example Value |
-| :--- | :--- | :--- |
-| `AWS_ACCESS_KEY_ID` | IAM Access Key for CI/CD deployment | `AKIA...` |
-| `AWS_SECRET_ACCESS_KEY` | IAM Secret Access Key | `wJal...` |
-| `AWS_ACCOUNT_ID` | AWS Account Number | `123456789012` |
-| `AWS_REGION` | Target AWS Region | `us-east-1` |
+```bash
+# View last 100 log events
+aws logs get-log-events \
+    --log-group-name "/ecs/wasktech-file-service-dev" \
+    --log-stream-name "api/<TASK_ID>" \
+    --limit 100
 
-> **Best Practice**: Instead of using long-lived IAM Access Keys, configure [GitHub OIDC with AWS IAM Roles](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services) for keyless authentication.
+# Search logs for errors (requires CloudWatch Logs Insights access)
+aws logs filter-log-events \
+    --log-group-name "/ecs/wasktech-file-service-dev" \
+    --filter-pattern "ERROR" \
+    --limit 50
+```
+
+### Find the Log Stream Name
+
+```bash
+aws logs describe-log-streams \
+    --log-group-name "/ecs/wasktech-file-service-dev" \
+    --order-by LastEventTime \
+    --descending \
+    --limit 5 \
+    --query "logStreams[*].{StreamName:logStreamName,LastEvent:lastEventTimestamp}" \
+    --output table
+```
+
+---
+
+## 💰 Cost Monitoring
+
+### Monthly Cost Breakdown by Service
+
+| Service | Dev/Month | Production/Month |
+|:---|:---|:---|
+| **NAT Gateway** | ~$34 | ~$68 |
+| **ALB** | ~$18 | ~$18 |
+| **ECS Fargate** | ~$19 | ~$75 |
+| **RDS PostgreSQL** | ~$13 | ~$52 |
+| **S3 Storage** | ~$1 | ~$5 |
+| **Secrets Manager** | ~$1 | ~$1 |
+| **CloudWatch** | ~$3 | ~$5 |
+| **ECR** | ~$1 | ~$1 |
+| **Data Transfer** | ~$5 | ~$20 |
+| **Total Estimate** | **~$101** | **~$619** |
+
+### Cost Optimization Tips
+
+1. **Dev/Staging**: Use `terraform destroy` when not actively testing
+2. **NAT Gateway**: Largest dev cost — the S3 VPC Endpoint already saves money on file operations
+3. **RDS**: Use `db.t4g.micro` for dev (free tier eligible for first 12 months)
+4. **ECS**: Single task in dev is sufficient; production auto-scales as needed

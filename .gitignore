@@ -31,3 +31,16 @@ BEGINNER_GUIDE.md
 Thumbs.db
 *.db
 *.pdf
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

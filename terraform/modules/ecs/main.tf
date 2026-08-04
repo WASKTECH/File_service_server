@@ -1,15 +1,4 @@
-# CloudWatch Log Group for ECS Tasks
-resource "aws_cloudwatch_log_group" "ecs" {
-  name              = "/ecs/${var.project_name}-${var.environment}"
-  retention_in_days = var.environment == "production" ? 90 : 30
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.project_name}-${var.environment}-ecs-logs"
-    }
-  )
-}
+# CloudWatch Log Group is auto-created by ECS via awslogs-create-group option
 
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
@@ -86,9 +75,10 @@ resource "aws_ecs_task_definition" "main" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+          "awslogs-group"         = "/ecs/${var.project_name}-${var.environment}"
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "api"
+          "awslogs-create-group"  = "true"
         }
       }
 
@@ -152,8 +142,9 @@ resource "aws_ecs_service" "main" {
   }
 }
 
-# Auto Scaling Target
+# Auto Scaling Target (production only - requires application-autoscaling:ListTagsForResource)
 resource "aws_appautoscaling_target" "ecs" {
+  count              = var.environment == "production" ? 1 : 0
   max_capacity       = var.max_capacity
   min_capacity       = var.min_capacity
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.main.name}"
@@ -163,11 +154,12 @@ resource "aws_appautoscaling_target" "ecs" {
 
 # Auto Scaling Policy - CPU Target Tracking
 resource "aws_appautoscaling_policy" "ecs_cpu" {
+  count              = var.environment == "production" ? 1 : 0
   name               = "${var.project_name}-${var.environment}-cpu-autoscaling"
   policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.ecs.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs.service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[0].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
 
   target_tracking_scaling_policy_configuration {
     target_value       = 70.0
@@ -182,11 +174,12 @@ resource "aws_appautoscaling_policy" "ecs_cpu" {
 
 # Auto Scaling Policy - Memory Target Tracking
 resource "aws_appautoscaling_policy" "ecs_memory" {
+  count              = var.environment == "production" ? 1 : 0
   name               = "${var.project_name}-${var.environment}-memory-autoscaling"
   policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.ecs.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs.service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[0].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
 
   target_tracking_scaling_policy_configuration {
     target_value       = 70.0
