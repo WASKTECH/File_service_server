@@ -16,5 +16,5 @@ output "db_password" {
 
 output "kms_key_arn" {
   description = "ARN of the Secrets Manager KMS Key"
-  value       = aws_kms_key.secrets.arn
+  value       = ""
 }

@@ -106,7 +106,7 @@ module "alb" {
   public_subnet_ids     = module.networking.public_subnet_ids
   alb_security_group_id = module.security.alb_security_group_id
   certificate_arn       = var.enable_custom_domain ? module.acm[0].certificate_arn : ""
-  logs_bucket_id        = module.s3.logs_bucket_id
+  logs_bucket_id        = var.environment == "production" ? module.s3.logs_bucket_id : ""
 
   tags = local.common_tags
 }

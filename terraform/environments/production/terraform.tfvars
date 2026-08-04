@@ -11,9 +11,9 @@ ecs_memory                = 2048
 ecs_desired_count         = 2
 ecs_min_capacity          = 2
 ecs_max_capacity          = 10
-enable_custom_domain      = true
+enable_custom_domain      = false  # Set to true once Route53 domain is provisioned
 domain_name               = "api.wasktech.com"
-route53_zone_id           = "Z0123456789ABCDEF0123" # Replace with actual Hosted Zone ID in AWS
+route53_zone_id           = ""  # Populate with Route53 Hosted Zone ID when domain is ready
 
 tags = {
   Environment = "production"

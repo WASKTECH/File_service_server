@@ -1,22 +1,3 @@
-# KMS Key for RDS Storage Encryption
-resource "aws_kms_key" "rds" {
-  description             = "KMS Key for ${var.project_name}-${var.environment} RDS PostgreSQL"
-  deletion_window_in_days = 30
-  enable_key_rotation     = true
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.project_name}-${var.environment}-rds-kms-key"
-    }
-  )
-}
-
-resource "aws_kms_alias" "rds" {
-  name          = "alias/${var.project_name}-${var.environment}-rds"
-  target_key_id = aws_kms_key.rds.key_id
-}
-
 # Parameter Group for PostgreSQL 16
 resource "aws_db_parameter_group" "pg16" {
   name        = "${var.project_name}-${var.environment}-pg16-params"
@@ -88,7 +69,6 @@ resource "aws_db_instance" "main" {
   max_allocated_storage = var.max_allocated_storage
   storage_type          = "gp3"
   storage_encrypted     = true
-  kms_key_id            = aws_kms_key.rds.arn
 
   db_name  = var.db_name
   username = var.db_username
@@ -111,7 +91,6 @@ resource "aws_db_instance" "main" {
 
   performance_insights_enabled          = true
   performance_insights_retention_period = 7
-  performance_insights_kms_key_id       = aws_kms_key.rds.arn
 
   monitoring_interval = 60
   monitoring_role_arn = aws_iam_role.rds_monitoring.arn

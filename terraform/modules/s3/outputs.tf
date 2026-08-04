@@ -10,12 +10,12 @@ output "bucket_arn" {
 
 output "kms_key_arn" {
   description = "The ARN of the KMS Key used for S3 encryption"
-  value       = aws_kms_key.s3.arn
+  value       = ""
 }
 
 output "kms_key_id" {
   description = "The ID of the KMS Key used for S3 encryption"
-  value       = aws_kms_key.s3.key_id
+  value       = ""
 }
 
 output "logs_bucket_id" {
