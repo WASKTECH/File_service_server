@@ -1,6 +1,6 @@
-# Application Load Balancer
+# Application Load Balancer (AWS ALB name limit is max 32 chars)
 resource "aws_lb" "main" {
-  name               = "${var.project_name}-${var.environment}-alb"
+  name               = substr("${var.project_name}-${var.environment}-alb", 0, 32)
   internal           = false
   load_balancer_type = "application"
   security_groups    = [var.alb_security_group_id]
@@ -28,7 +28,7 @@ resource "aws_lb" "main" {
 
 # Target Group for ECS Fargate Tasks (IP Target Type)
 resource "aws_lb_target_group" "main" {
-  name        = "${var.project_name}-${var.environment}-tg"
+  name        = substr("${var.project_name}-${var.environment}-tg", 0, 32)
   port        = 8000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
