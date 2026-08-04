@@ -2,9 +2,11 @@
 Database connection and session factory using SQLAlchemy 2.0.
 """
 
-from typing import Generator
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
+
 from app.core.config import settings
 
 connect_args = {}

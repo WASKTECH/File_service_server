@@ -2,8 +2,7 @@
 FastAPI dependency functions for authentication, DB sessions, and domain services.
 """
 
-from typing import Generator
-from fastapi import Header, Depends
+from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -12,8 +11,8 @@ from app.db.session import get_db_session
 from app.models.app_model import App
 from app.repositories.app_repository import AppRepository
 from app.repositories.file_repository import FileRepository
-from app.services.s3_service import S3Service
 from app.services.file_service import FileService
+from app.services.s3_service import S3Service
 
 
 def get_current_app(

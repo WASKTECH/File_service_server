@@ -2,7 +2,8 @@
 Common request and response schemas including standard envelopes and pagination wrappers.
 """
 
-from typing import Generic, TypeVar, Optional, List
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -13,7 +14,7 @@ class APIResponse(BaseModel, Generic[T]):
 
     success: bool = True
     data: T
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class PaginationMeta(BaseModel):
@@ -30,5 +31,5 @@ class PaginationMeta(BaseModel):
 class PaginatedData(BaseModel, Generic[T]):
     """Paginated result container."""
 
-    items: List[T]
+    items: list[T]
     pagination: PaginationMeta

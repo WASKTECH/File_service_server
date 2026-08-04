@@ -4,7 +4,7 @@ Application configuration management using Pydantic Settings.
 Parses and validates environment variables from `.env` or system environment.
 """
 
-from typing import List, Set
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Security & Auth
     API_KEY_HEADER_NAME: str = "x-api-key"
-    ALLOWED_MIME_TYPES: Set[str] = Field(
+    ALLOWED_MIME_TYPES: set[str] = Field(
         default={
             "application/pdf",
             "image/jpeg",
@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     )
 
     # CORS Configuration
-    CORS_ORIGINS: List[str] = Field(default=["*"])
+    CORS_ORIGINS: list[str] = Field(default=["*"])
 
     model_config = SettingsConfigDict(
         env_file=".env",

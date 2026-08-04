@@ -2,9 +2,9 @@
 File schemas for API requests, responses, and query parameters.
 """
 
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UploadRequest(BaseModel):
@@ -12,7 +12,7 @@ class UploadRequest(BaseModel):
 
     filename: str = Field(..., min_length=1, max_length=255, description="Original filename with extension")
     content_type: str = Field(..., min_length=3, max_length=128, description="MIME type of file (e.g. application/pdf)")
-    owner_id: Optional[str] = Field(None, max_length=255, description="Optional end-user ID within the consuming app")
+    owner_id: str | None = Field(None, max_length=255, description="Optional end-user ID within the consuming app")
 
 
 class UploadUrlResponse(BaseModel):
@@ -39,9 +39,9 @@ class FileResponse(BaseModel):
     s3_key: str
     original_filename: str
     app_id: str
-    owner_id: Optional[str]
-    content_type: Optional[str]
-    size: Optional[int]
+    owner_id: str | None
+    content_type: str | None
+    size: int | None
     status: str
     created_at: datetime
 
@@ -59,7 +59,7 @@ class DownloadUrlResponse(BaseModel):
 class FileListParams(BaseModel):
     """Query parameters for file listing with pagination and filtering."""
 
-    owner_id: Optional[str] = None
-    status: Optional[str] = "COMPLETED"
+    owner_id: str | None = None
+    status: str | None = "COMPLETED"
     page: int = Field(1, ge=1, description="Page number starting at 1")
     page_size: int = Field(20, ge=1, le=100, description="Items per page (max 100)")

@@ -2,14 +2,14 @@
 Health check endpoints for container orchestrators (Kubernetes / AWS ECS).
 """
 
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.services.s3_service import S3Service
 from app.dependencies.deps import get_s3_service
 from app.schemas.common import APIResponse
+from app.services.s3_service import S3Service
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
@@ -28,14 +28,14 @@ def health_check(
     try:
         db.execute(text("SELECT 1"))
     except Exception as e:
-        db_status = f"unhealthy: {str(e)}"
+        db_status = f"unhealthy: {e!s}"
 
     s3_status = "healthy"
     try:
         # Fast test presigned URL generation to verify credentials/region
         s3_service.generate_presigned_download_url("health_test_key", "test.txt", expires_in=60)
     except Exception as e:
-        s3_status = f"unhealthy: {str(e)}"
+        s3_status = f"unhealthy: {e!s}"
 
     overall_healthy = db_status == "healthy" and s3_status == "healthy"
 

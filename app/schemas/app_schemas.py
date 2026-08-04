@@ -3,7 +3,8 @@ App entity request and response schemas.
 """
 
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AppCreate(BaseModel):

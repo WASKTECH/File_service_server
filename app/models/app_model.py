@@ -2,8 +2,9 @@
 App ORM model representing registered consuming applications.
 """
 
-from sqlalchemy import Column, String, Index
+from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship
+
 from app.db.base import Base, TimestampMixin
 
 

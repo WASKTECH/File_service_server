@@ -4,9 +4,11 @@ FileRecord ORM model representing metadata for files stored in AWS S3.
 
 import enum
 import uuid
-from sqlalchemy import Column, String, Integer, BigInteger, ForeignKey, Index
+
+from sqlalchemy import BigInteger, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
-from app.db.base import Base, TimestampMixin, SoftDeleteMixin
+
+from app.db.base import Base, SoftDeleteMixin, TimestampMixin
 
 
 class FileStatus(str, enum.Enum):

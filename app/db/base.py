@@ -2,8 +2,9 @@
 SQLAlchemy Base class and common model mixins.
 """
 
-from datetime import datetime, timezone
-from sqlalchemy import Column, DateTime, Boolean
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -14,13 +15,13 @@ class TimestampMixin:
 
     created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -34,4 +35,4 @@ class SoftDeleteMixin:
     def soft_delete(self):
         """Mark record as soft deleted."""
         self.is_deleted = True
-        self.deleted_at = datetime.now(timezone.utc)
+        self.deleted_at = datetime.now(UTC)

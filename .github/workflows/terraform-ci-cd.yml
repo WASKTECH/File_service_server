@@ -2,15 +2,16 @@ name: Terraform Infrastructure CI/CD
 
 on:
   push:
-    branches: [ main, staging, dev ]
+    branches: [ main, staging, dev, terraform ]
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform-ci-cd.yml'
   pull_request:
-    branches: [ main, staging, dev ]
+    branches: [ main, staging, dev, terraform ]
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform-ci-cd.yml'
+  workflow_dispatch:
 
 permissions:
   id-token: write

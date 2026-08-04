@@ -7,8 +7,9 @@ soft deletion, invalid input handling, and health endpoints using mocked S3 clie
 """
 
 import os
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 # Force test database URL before importing application
 TEST_DB_PATH = "./test_runner.db"
@@ -19,12 +20,12 @@ os.environ["AWS_REGION"] = "us-east-1"
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from app.db.session import engine, get_db_session
+from app.core.security import hash_api_key
 from app.db.base import Base
+from app.db.session import engine, get_db_session
+from app.main import app
 from app.models.app_model import App
 from app.models.file_record import FileRecord, FileStatus
-from app.core.security import hash_api_key
-from app.main import app
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

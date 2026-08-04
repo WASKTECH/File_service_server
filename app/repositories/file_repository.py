@@ -2,9 +2,9 @@
 Repository for FileRecord database queries and updates.
 """
 
-from typing import Optional, List, Tuple
+
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+
 from app.models.file_record import FileRecord, FileStatus
 
 
@@ -20,7 +20,7 @@ class FileRepository:
         s3_key: str,
         original_filename: str,
         app_id: str,
-        owner_id: Optional[str],
+        owner_id: str | None,
         content_type: str,
     ) -> FileRecord:
         """Create a new FileRecord with PENDING status."""
@@ -38,7 +38,7 @@ class FileRepository:
         self.db.refresh(record)
         return record
 
-    def get_by_uuid_and_app(self, uuid_str: str, app_id: str) -> Optional[FileRecord]:
+    def get_by_uuid_and_app(self, uuid_str: str, app_id: str) -> FileRecord | None:
         """Fetch active (non-deleted) FileRecord matching UUID and tenant app_id."""
         return (
             self.db.query(FileRecord)
@@ -53,11 +53,11 @@ class FileRepository:
     def list_files(
         self,
         app_id: str,
-        owner_id: Optional[str] = None,
-        status: Optional[str] = "COMPLETED",
+        owner_id: str | None = None,
+        status: str | None = "COMPLETED",
         page: int = 1,
         page_size: int = 20,
-    ) -> Tuple[List[FileRecord], int]:
+    ) -> tuple[list[FileRecord], int]:
         """
         Query files for an app with filtering and pagination.
 
@@ -79,7 +79,7 @@ class FileRepository:
 
         return items, total
 
-    def update_status(self, record: FileRecord, status: str, size: Optional[int] = None) -> FileRecord:
+    def update_status(self, record: FileRecord, status: str, size: int | None = None) -> FileRecord:
         """Update file upload status and byte size."""
         record.status = status
         if size is not None:
