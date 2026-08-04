@@ -73,10 +73,10 @@ jobs:
           cd terraform/environments/${{ matrix.environment }}
           terraform plan -no-color -out=tfplan
 
-  terraform-apply:
-    name: Terraform Apply
+  terraform-apply-dev:
+    name: Terraform Apply (Dev)
     needs: terraform-plan
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/terraform') && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -94,8 +94,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Apply Infrastructure (Production)
+      - name: Apply Infrastructure (Dev Environment)
         run: |
-          cd terraform/environments/production
+          cd terraform/environments/dev
           terraform init
           terraform apply -auto-approve
