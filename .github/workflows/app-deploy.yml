@@ -56,7 +56,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Determine Target Environment & Verify ECR Repo
+      - name: Determine Target Environment & Verify AWS Infrastructure
         id: env-name
         run: |
           TARGET_ENV="dev"
@@ -66,18 +66,17 @@ jobs:
             TARGET_ENV="staging"
           fi
 
+          TASK_DEF="wasktech-file-service-${TARGET_ENV}-task"
+
+          # Fallback to dev if target environment Task Definition / ECR is not yet provisioned in AWS
+          if ! aws ecs describe-task-definition --task-definition "$TASK_DEF" >/dev/null 2>&1; then
+            echo "::warning ::Target ECS Task Definition '$TASK_DEF' not found in AWS. Falling back to 'dev' environment."
+            TARGET_ENV="dev"
+          fi
+
           ECR_NAME="wasktech-file-service-api-${TARGET_ENV}"
           ECS_SVC="wasktech-file-service-${TARGET_ENV}-service"
           ECS_CLS="wasktech-file-service-${TARGET_ENV}-cluster"
-
-          # Fallback to dev if target environment ECR repo is not yet provisioned in AWS
-          if ! aws ecr describe-repositories --repository-names "$ECR_NAME" >/dev/null 2>&1; then
-            echo "::warning ::Target ECR repo '$ECR_NAME' not found in AWS. Falling back to 'dev' environment."
-            TARGET_ENV="dev"
-            ECR_NAME="wasktech-file-service-api-dev"
-            ECS_SVC="wasktech-file-service-dev-service"
-            ECS_CLS="wasktech-file-service-dev-cluster"
-          fi
 
           echo "ENV=${TARGET_ENV}" >> $GITHUB_OUTPUT
           echo "ECR_REPO=${ECR_NAME}" >> $GITHUB_OUTPUT
