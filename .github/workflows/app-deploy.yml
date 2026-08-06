@@ -2,7 +2,7 @@ name: Application Build, Scan & Deploy to ECS Fargate
 
 on:
   push:
-    branches: [ main, staging ]
+    branches: [ main, staging, dev, terraform ]
   workflow_dispatch:
 
 permissions:
@@ -27,7 +27,11 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt pytest-cov
+
+      - name: Code Quality check with Ruff
+        run: |
+          ruff check app/ tests/
 
       - name: Run Pytest Suite
         run: |
@@ -41,21 +45,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set Environment Variables
-        id: env-name
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "ENV=production" >> $GITHUB_OUTPUT
-            echo "ECR_REPO=wasktech-file-service-api-production" >> $GITHUB_OUTPUT
-            echo "ECS_SERVICE=wasktech-file-service-production-service" >> $GITHUB_OUTPUT
-            echo "ECS_CLUSTER=wasktech-file-service-production-cluster" >> $GITHUB_OUTPUT
-          else
-            echo "ENV=staging" >> $GITHUB_OUTPUT
-            echo "ECR_REPO=wasktech-file-service-api-staging" >> $GITHUB_OUTPUT
-            echo "ECS_SERVICE=wasktech-file-service-staging-service" >> $GITHUB_OUTPUT
-            echo "ECS_CLUSTER=wasktech-file-service-staging-cluster" >> $GITHUB_OUTPUT
-          fi
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -66,6 +55,34 @@ jobs:
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Determine Target Environment & Verify ECR Repo
+        id: env-name
+        run: |
+          TARGET_ENV="dev"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            TARGET_ENV="production"
+          elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+            TARGET_ENV="staging"
+          fi
+
+          ECR_NAME="wasktech-file-service-api-${TARGET_ENV}"
+          ECS_SVC="wasktech-file-service-${TARGET_ENV}-service"
+          ECS_CLS="wasktech-file-service-${TARGET_ENV}-cluster"
+
+          # Fallback to dev if target environment ECR repo is not yet provisioned in AWS
+          if ! aws ecr describe-repositories --repository-names "$ECR_NAME" >/dev/null 2>&1; then
+            echo "::warning ::Target ECR repo '$ECR_NAME' not found in AWS. Falling back to 'dev' environment."
+            TARGET_ENV="dev"
+            ECR_NAME="wasktech-file-service-api-dev"
+            ECS_SVC="wasktech-file-service-dev-service"
+            ECS_CLS="wasktech-file-service-dev-cluster"
+          fi
+
+          echo "ENV=${TARGET_ENV}" >> $GITHUB_OUTPUT
+          echo "ECR_REPO=${ECR_NAME}" >> $GITHUB_OUTPUT
+          echo "ECS_SERVICE=${ECS_SVC}" >> $GITHUB_OUTPUT
+          echo "ECS_CLUSTER=${ECS_CLS}" >> $GITHUB_OUTPUT
 
       - name: Build, Tag & Push Image to ECR
         env:
@@ -112,4 +129,3 @@ jobs:
           done
           echo "Health check failed after 10 attempts!"
           exit 1
-          
