@@ -89,9 +89,13 @@ jobs:
           ECR_REPOSITORY: ${{ steps.env-name.outputs.ECR_REPO }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker build -t $IMAGE_URI .
+          if aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$IMAGE_TAG" >/dev/null 2>&1; then
+            echo "Image tag $IMAGE_TAG already exists in ECR repository $ECR_REPOSITORY. Skipping push due to ECR tag immutability."
+          else
+            docker push $IMAGE_URI
+          fi
 
       - name: Download Task Definition
         run: |
