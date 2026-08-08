@@ -13,13 +13,10 @@ from app.core.security import hash_api_key
 from app.repositories.app_repository import AppRepository
 
 
-def seed():
+def seed(app_id: str = "el_roi_pay_file_server", name: str = "El Roi Pay File Server"):
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     app_repo = AppRepository(db)
-
-    app_id = "main_app_1"
-    name = "Main Application"
 
     existing = app_repo.get_by_id(app_id)
     if existing:
@@ -43,4 +40,8 @@ def seed():
 
 
 if __name__ == "__main__":
-    seed()
+    import sys
+
+    app_id = sys.argv[1] if len(sys.argv) > 1 else "el_roi_pay_file_server"
+    app_name = sys.argv[2] if len(sys.argv) > 2 else "El Roi Pay File Server"
+    seed(app_id, app_name)
