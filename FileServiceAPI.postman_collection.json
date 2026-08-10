@@ -5,9 +5,10 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "base_url", "value": "http://localhost:8000/api/v1" },
     { "key": "api_key",  "value": "8fba5786e29e98315decdb1eed0dca80" },
-    { "key": "file_id",  "value": "1" }
+    { "key": "file_uuid", "value": "" },
+    { "key": "upload_url", "value": "" }
   ],
   "item": [
     {
@@ -30,10 +31,38 @@
           "script": {
             "exec": [
               "var json = pm.response.json();",
-              "pm.collectionVariables.set('file_id', json.file_id);",
-              "pm.test('Got presigned URL', () => pm.expect(json.upload_url).to.include('s3.amazonaws.com'));",
-              "pm.test('Got file_id', () => pm.expect(json.file_id).to.be.a('number'));",
-              "console.log('Saved file_id:', json.file_id);"
+              "pm.collectionVariables.set('file_uuid', json.data.file_uuid);",
+              "pm.collectionVariables.set('upload_url', json.data.upload_url);",
+              "pm.test('Got presigned URL', () => pm.expect(json.data.upload_url).to.include('s3.amazonaws.com'));",
+              "pm.test('Got file_uuid', () => pm.expect(json.data.file_uuid).to.be.a('string'));",
+              "console.log('Saved file_uuid:', json.data.file_uuid);",
+              "console.log('Saved upload_url:', json.data.upload_url);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1b. Upload Binary to S3 (PUT)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/pdf" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "%PDF-1.4 ... Sample PDF binary content for testing presigned upload ..."
+        },
+        "url": { "raw": "{{upload_url}}" },
+        "description": "Uploads raw file binary directly to AWS S3 using the presigned PUT URL generated in Step 1. Note: This HTTP PUT request goes directly to AWS S3, NOT through the FastAPI File Service API."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('S3 Upload Status 200', () => pm.expect(pm.response.code).to.equal(200));",
+              "console.log('Uploaded binary directly to AWS S3 successfully');"
             ]
           }
         }
@@ -46,7 +75,7 @@
         "header": [
           { "key": "x-api-key", "value": "{{api_key}}" }
         ],
-        "url": { "raw": "{{base_url}}/files/{{file_id}}/confirm", "host": ["{{base_url}}"], "path": ["files", "{{file_id}}", "confirm"] }
+        "url": { "raw": "{{base_url}}/files/{{file_uuid}}/confirm", "host": ["{{base_url}}"], "path": ["files", "{{file_uuid}}", "confirm"] }
       },
       "event": [
         {
@@ -68,13 +97,13 @@
           { "key": "x-api-key", "value": "{{api_key}}" }
         ],
         "url": {
-          "raw": "{{base_url}}/files?status=ALL&limit=10&offset=0",
+          "raw": "{{base_url}}/files?status=ALL&page=1&page_size=20",
           "host": ["{{base_url}}"],
           "path": ["files"],
           "query": [
             { "key": "status", "value": "ALL" },
-            { "key": "limit",  "value": "10" },
-            { "key": "offset", "value": "0" }
+            { "key": "page",  "value": "1" },
+            { "key": "page_size", "value": "20" }
           ]
         }
       },
@@ -85,8 +114,8 @@
             "exec": [
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
               "var json = pm.response.json();",
-              "pm.test('Has total field', () => pm.expect(json).to.have.property('total'));",
-              "console.log('Total files:', json.total);"
+              "pm.test('Has items field', () => pm.expect(json.data).to.have.property('items'));",
+              "console.log('Total files:', json.data.total);"
             ]
           }
         }
@@ -99,7 +128,7 @@
         "header": [
           { "key": "x-api-key", "value": "{{api_key}}" }
         ],
-        "url": { "raw": "{{base_url}}/files/{{file_id}}", "host": ["{{base_url}}"], "path": ["files", "{{file_id}}"] }
+        "url": { "raw": "{{base_url}}/files/{{file_uuid}}", "host": ["{{base_url}}"], "path": ["files", "{{file_uuid}}"] }
       },
       "event": [
         {
@@ -121,9 +150,9 @@
           { "key": "x-api-key", "value": "{{api_key}}" }
         ],
         "url": {
-          "raw": "{{base_url}}/files/{{file_id}}/download-url?expires_in=300",
+          "raw": "{{base_url}}/files/{{file_uuid}}/download-url?expires_in=300",
           "host": ["{{base_url}}"],
-          "path": ["files", "{{file_id}}", "download-url"],
+          "path": ["files", "{{file_uuid}}", "download-url"],
           "query": [{ "key": "expires_in", "value": "300" }]
         }
       },
@@ -146,7 +175,7 @@
         "header": [
           { "key": "x-api-key", "value": "{{api_key}}" }
         ],
-        "url": { "raw": "{{base_url}}/files/{{file_id}}", "host": ["{{base_url}}"], "path": ["files", "{{file_id}}"] }
+        "url": { "raw": "{{base_url}}/files/{{file_uuid}}", "host": ["{{base_url}}"], "path": ["files", "{{file_uuid}}"] }
       },
       "event": [
         {
@@ -154,8 +183,8 @@
           "script": {
             "exec": [
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
-              "pm.test('Deleted', () => pm.expect(pm.response.json().status).to.equal('deleted'));",
-              "console.log('Deleted file_id:', pm.response.json().file_id);"
+              "pm.test('Deleted', () => pm.expect(pm.response.json().success).to.equal(true));",
+              "console.log('Deleted file_uuid:', pm.response.json().data.file_uuid);"
             ]
           }
         }
@@ -164,11 +193,11 @@
     {
       "name": "AUTH TEST - Invalid Key (expect 401)",
       "request": {
-        "method": "GET",
+        "method": "POST",
         "header": [
           { "key": "x-api-key", "value": "wrong_key_here" }
         ],
-        "url": { "raw": "{{base_url}}/files", "host": ["{{base_url}}"], "path": ["files"] }
+        "url": { "raw": "{{base_url}}/files/upload-url", "host": ["{{base_url}}"], "path": ["files", "upload-url"] }
       },
       "event": [
         {

@@ -25,7 +25,15 @@ router = APIRouter(prefix="/files", tags=["Files"])
     response_model=APIResponse[UploadUrlResponse],
     status_code=status.HTTP_201_CREATED,
     summary="Request presigned S3 upload URL",
-    description="Generates a temporary presigned S3 PUT URL for uploading file binaries directly to AWS S3 without passing through API memory.",
+    description=(
+        "**Step 1 of 3 (Request URL)**: Generates a temporary presigned S3 PUT URL (`upload_url`) "
+        "and registers a `PENDING` record in the database.\n\n"
+        "**Step 2 (Upload Binary to AWS S3)**: The client app/frontend issues an `HTTP PUT` request directly "
+        "to the returned `upload_url` with the file binary as body (`Content-Type: <mime_type>`). "
+        "*Note: This PUT request is executed directly against AWS S3, NOT against this API server.*\n\n"
+        "**Step 3 (Confirm Upload)**: After AWS S3 returns HTTP 200 OK, the client calls "
+        "`POST /api/v1/files/{file_uuid}/confirm` to verify S3 object existence and mark status as `COMPLETED`."
+    ),
 )
 def get_upload_url(
     payload: UploadRequest,
