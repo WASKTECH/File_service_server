@@ -4,6 +4,7 @@ REST API endpoints for file management operations.
 
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import RedirectResponse
 
 from app.dependencies.deps import get_current_app, get_file_service
 from app.models.app_model import App
@@ -114,6 +115,26 @@ def get_download_url(
 ):
     result = file_service.get_download_url(app=current_app, file_uuid=file_uuid, expires_in=expires_in)
     return APIResponse(data=result, message="Presigned download URL generated successfully")
+
+
+@router.get(
+    "/{file_uuid}/content",
+    response_class=RedirectResponse,
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    summary="Permanent file permalink (307 Redirect)",
+    description=(
+        "Permanent, non-expiring URL endpoint for consuming apps to store in their databases.\n\n"
+        "Authenticates the request via `x-api-key` header or `?api_key=` query parameter, "
+        "generates a fresh presigned S3 download link on-the-fly, and issues an HTTP 307 Temporary Redirect to stream/view the file binary."
+    ),
+)
+def get_file_content(
+    file_uuid: str,
+    current_app: App = Depends(get_current_app),
+    file_service: FileService = Depends(get_file_service),
+):
+    result = file_service.get_download_url(app=current_app, file_uuid=file_uuid, expires_in=300)
+    return RedirectResponse(url=result.download_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
 @router.delete(

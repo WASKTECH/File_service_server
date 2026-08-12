@@ -169,6 +169,30 @@
       ]
     },
     {
+      "name": "5b. Permanent File Content Permalink (307 Redirect)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/files/{{file_uuid}}/content?api_key={{api_key}}",
+          "host": ["{{base_url}}"],
+          "path": ["files", "{{file_uuid}}", "content"],
+          "query": [{ "key": "api_key", "value": "{{api_key}}" }]
+        },
+        "description": "Permanent non-expiring file link. Consuming apps store this URL pattern in their DBs. Accepts api_key as query param or x-api-key as header, and returns a 307 redirect to S3."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 307 Redirect or 200', () => pm.expect(pm.response.code).to.be.oneOf([307, 200]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "6. Delete File",
       "request": {
         "method": "DELETE",

@@ -2,7 +2,7 @@
 FastAPI dependency functions for authentication, DB sessions, and domain services.
 """
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -16,16 +16,20 @@ from app.services.s3_service import S3Service
 
 
 def get_current_app(
-    x_api_key: str = Header(..., alias=settings.API_KEY_HEADER_NAME, description="API Key for multi-tenant application authentication"),
+    x_api_key: str | None = Header(None, alias=settings.API_KEY_HEADER_NAME, description="API Key for multi-tenant application authentication"),
+    api_key: str | None = Query(None, description="API Key query parameter alternative for direct browser permalinks"),
     db: Session = Depends(get_db_session),
 ) -> App:
     """
-    Authenticate calling application using x-api-key header.
+    Authenticate calling application using x-api-key header or api_key query parameter.
 
     Checks database for SHA-256 hash match of API Key.
     """
+    key_to_check = x_api_key or api_key
+    if not key_to_check:
+        raise AppNotFoundError()
     app_repo = AppRepository(db)
-    app = app_repo.get_by_api_key(x_api_key)
+    app = app_repo.get_by_api_key(key_to_check)
     if not app:
         raise AppNotFoundError()
     return app

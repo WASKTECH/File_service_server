@@ -84,10 +84,10 @@ def test_health_check_endpoint(mock_presign):
 # Authentication Tests
 # ---------------------------------------------------------------------------
 
-def test_auth_missing_header_returns_422():
-    """Requests missing x-api-key header should return validation error."""
+def test_auth_missing_header_returns_401():
+    """Requests missing x-api-key header or query param should return 401 Unauthorized."""
     response = client.post("/api/v1/files/upload-url", json={"filename": "doc.pdf", "content_type": "application/pdf"})
-    assert response.status_code == 422
+    assert response.status_code == 401
 
 
 def test_auth_invalid_key_returns_401():
@@ -221,6 +221,43 @@ def test_get_download_url_completed_file(mock_dl):
     assert res.status_code == 200
     assert res.json()["data"]["download_url"] == "https://s3.example.com/download-link"
     assert res.json()["data"]["filename"] == "data.csv"
+
+
+@patch("app.services.s3_service.S3Service.generate_presigned_download_url")
+def test_get_file_content_permalink_redirect(mock_dl):
+    """GET /api/v1/files/{uuid}/content redirects (307) to fresh S3 download link via header or query param auth."""
+    mock_dl.return_value = "https://s3.example.com/fresh-download-link"
+
+    db = TestingSessionLocal()
+    rec = FileRecord(
+        uuid="990e8400-e29b-41d4-a716-446655440000",
+        s3_key=f"{APP_ID}/990e8400-e29b-41d4-a716-446655440000-image.png",
+        original_filename="image.png",
+        app_id=APP_ID,
+        content_type="image/png",
+        size=1234,
+        status=FileStatus.COMPLETED.value,
+    )
+    db.add(rec)
+    db.commit()
+    db.close()
+
+    # Test 1: Header auth
+    res_header = client.get(
+        "/api/v1/files/990e8400-e29b-41d4-a716-446655440000/content",
+        headers={"x-api-key": API_KEY},
+        follow_redirects=False,
+    )
+    assert res_header.status_code == 307
+    assert res_header.headers["location"] == "https://s3.example.com/fresh-download-link"
+
+    # Test 2: Query param auth (direct browser link)
+    res_query = client.get(
+        f"/api/v1/files/990e8400-e29b-41d4-a716-446655440000/content?api_key={API_KEY}",
+        follow_redirects=False,
+    )
+    assert res_query.status_code == 307
+    assert res_query.headers["location"] == "https://s3.example.com/fresh-download-link"
 
 
 def test_get_download_url_pending_file_fails():
