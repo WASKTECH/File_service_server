@@ -377,6 +377,18 @@ curl.exe -X GET "$baseUrl/files/$fileUuid/download-url?expires_in=300" -H "x-api
 
 ---
 
+### Step 6b: Permanent File Content Permalink (`GET /files/{uuid}/content`)
+
+Generates a non-expiring permanent permalink URL for consuming applications to store in their databases. Accepts authentication via `x-api-key` header or `?api_key=` query parameter:
+
+**PowerShell**:
+```powershell
+curl.exe -L -X GET "$baseUrl/files/$fileUuid/content?api_key=$apiKey"
+```
+*(Paste `http://<domain>/api/v1/files/$fileUuid/content?api_key=$apiKey` directly into any web browser, mobile app, or `<img>` tag. The API authenticates the request, generates a fresh presigned S3 link on-the-fly, and issues an HTTP 307 Temporary Redirect).*
+
+---
+
 ### Step 7: Delete File (`DELETE /files/{uuid}`)
 
 Deletes the binary object from S3 and soft-deletes the metadata in PostgreSQL:
