@@ -206,19 +206,28 @@ python -m pip install -r requirements.txt
 
 ### 3. Seed App Registration & Generate API Key
 
+**Local Development (SQLite)**:
 ```bash
-python seed_app.py
+python seed_app.py el_roi_pay_file_server "El Roi Pay File Server"
 ```
+To rotate/reset an API key for an existing application locally:
+```bash
+python seed_app.py el_roi_pay_file_server "El Roi Pay File Server" --rotate
+```
+
 *Console Output*:
 ```text
 ==================================================
- [OK] Application created successfully!
+ [OK] API Key Rotated / Reset Successfully!
 ==================================================
-   App ID:  main_app
-   API Key: 4f8a91b2c3d4e5f6789012345678abcd
+   App ID:  el_roi_pay_file_server
+   API Key: 56f67e3284c5cef8b4601d0587164c0f
    IMPORTANT: Store this API Key securely. It will not be shown again!
 ==================================================
 ```
+
+**Deployed AWS Environment (ECS + RDS)**:
+Because the production RDS database resides in a private VPC subnet, seeding for deployed environments must be executed as a one-off Fargate task in ECS or via the AWS Console. See [OPERATIONAL_RUNBOOK.md](docs/OPERATIONAL_RUNBOOK.md#application-seeding--api-key-rotation-in-aws-ecs) for full AWS instructions.
 
 ### 4. Run the API Server
 

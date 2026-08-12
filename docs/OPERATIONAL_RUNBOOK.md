@@ -195,6 +195,54 @@ aws ecs execute-command \
 # python -c "from app.core.config import get_settings; print(get_settings().DATABASE_URL)"
 ```
 
+### Application Seeding & API Key Rotation in AWS ECS
+
+Because the production RDS PostgreSQL database resides inside a private VPC subnet (inaccessible directly from local developer workstations), seeding consuming applications or rotating API keys for deployed environments must be executed as a one-off Fargate task in ECS.
+
+#### Method 1: AWS CLI (One-Off Task Execution)
+
+1. Create a temporary overrides file `overrides.json`:
+```json
+{
+  "containerOverrides": [
+    {
+      "name": "api",
+      "command": ["python", "seed_app.py", "el_roi_pay_file_server", "El Roi Pay File Server", "--rotate"]
+    }
+  ]
+}
+```
+*(Omit `--rotate` when seeding a new application for the first time).*
+
+2. Launch the task in the ECS cluster:
+```bash
+aws ecs run-task \
+    --cluster wasktech-file-service-dev-cluster \
+    --task-definition wasktech-file-service-dev-task \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={subnets=[subnet-0a16005f7d5f013b6],securityGroups=[sg-015e633bf1c3f1da7],assignPublicIp=ENABLED}" \
+    --overrides file://overrides.json \
+    --query "tasks[0].taskArn" --output text
+```
+
+3. Retrieve the generated API key from CloudWatch logs:
+```bash
+aws logs get-log-events \
+    --log-group-name "/ecs/wasktech-file-service-dev" \
+    --log-stream-name "api/api/<task-id>" \
+    --query "events[*].message" --output text
+```
+
+#### Method 2: AWS Web Console
+
+1. Navigate to **AWS Console** $\rightarrow$ **Elastic Container Service (ECS)** $\rightarrow$ **Clusters** $\rightarrow$ `wasktech-file-service-dev-cluster`.
+2. Under the **Tasks** tab, click **Run new task**.
+3. Select **Fargate** launch type and task definition `wasktech-file-service-dev-task`.
+4. Under **Container Overrides**:
+   - Container Name: `api`
+   - Command Override: `python,seed_app.py,el_roi_pay_file_server,El Roi Pay File Server,--rotate`
+5. Click **Run Task**, wait for execution to complete (Status: `STOPPED`), then view the **Logs** tab to retrieve the new API Key.
+
 ### Common Database Queries
 
 ```sql
