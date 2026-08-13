@@ -11,9 +11,10 @@ ecs_memory                = 2048
 ecs_desired_count         = 2
 ecs_min_capacity          = 2
 ecs_max_capacity          = 10
-enable_custom_domain      = false # Set to true once Route53 domain is provisioned
-domain_name               = "api.wasktech.com"
-route53_zone_id           = "" # Populate with Route53 Hosted Zone ID when domain is ready
+enable_custom_domain      = false # Set to true once the production domain CNAME is ready
+domain_name               = "api.wasktechnologies.com"
+route53_zone_id           = ""    # Populate with Route53 Hosted Zone ID when DNS is in this account
+attach_acm_certificate    = false # Flip to true after ACM DNS validation records exist
 
 tags = {
   Environment = "production"

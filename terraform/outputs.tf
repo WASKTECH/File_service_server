@@ -10,7 +10,19 @@ output "alb_dns_name" {
 
 output "api_url" {
   description = "Full URL to access the File Service API"
-  value       = var.enable_custom_domain ? "https://${var.domain_name}" : "http://${module.alb.alb_dns_name}"
+  value = var.enable_custom_domain ? (
+    local.attach_certificate ? "https://${var.domain_name}" : "http://${var.domain_name}"
+  ) : "http://${module.alb.alb_dns_name}"
+}
+
+output "acm_validation_records" {
+  description = "ACM DNS validation records to create at the DNS provider when Route53 is not used"
+  value       = var.enable_custom_domain ? module.acm[0].validation_records : []
+}
+
+output "acm_certificate_status" {
+  description = "ACM certificate status when a custom domain is enabled"
+  value       = var.enable_custom_domain ? module.acm[0].certificate_status : "disabled"
 }
 
 output "ecr_repository_url" {

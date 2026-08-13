@@ -25,7 +25,7 @@ This runbook provides step-by-step procedures for day-2 operations, monitoring, 
 
 | Environment | API Endpoint | CloudWatch Dashboard |
 |:---|:---|:---|
-| **Dev** | `http://<dev-alb-dns>/api/v1` | `wasktech-file-service-dev-dashboard` |
+| **Dev** | `https://fileservice.wasktechnologies.com/api/v1` | `wasktech-file-service-dev-dashboard` |
 | **Staging** | `http://<staging-alb-dns>/api/v1` | `wasktech-file-service-staging-dashboard` |
 | **Production** | `http://<prod-alb-dns>/api/v1` | `wasktech-file-service-production-dashboard` |
 
@@ -49,7 +49,7 @@ Secret:        wasktech-file-service/dev/app-secrets
 
 ```bash
 # Check API health
-curl -s http://<ALB_DNS>/api/v1/health | jq .
+curl -s https://fileservice.wasktechnologies.com/api/v1/health | jq .
 
 # Expected response:
 # {"status": "healthy", "service": "File Service API"}

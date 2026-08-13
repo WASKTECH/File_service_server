@@ -14,4 +14,5 @@ variable "ecs_max_capacity" { type = number }
 variable "enable_custom_domain" { type = bool }
 variable "domain_name" { type = string }
 variable "route53_zone_id" { type = string }
+variable "attach_acm_certificate" { type = bool }
 variable "tags" { type = map(string) }

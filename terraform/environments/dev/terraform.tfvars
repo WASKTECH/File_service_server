@@ -11,9 +11,10 @@ ecs_memory                = 1024
 ecs_desired_count         = 1
 ecs_min_capacity          = 1
 ecs_max_capacity          = 4
-enable_custom_domain      = false
-domain_name               = "dev-api.wasktech.com"
-route53_zone_id           = ""
+enable_custom_domain      = true
+domain_name               = "fileservice.wasktechnologies.com"
+route53_zone_id           = ""    # DNS CNAME is managed outside this AWS account
+attach_acm_certificate    = false # Flip to true after the ACM validation CNAME is added
 
 tags = {
   Environment = "dev"

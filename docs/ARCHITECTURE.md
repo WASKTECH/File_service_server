@@ -12,9 +12,8 @@ This document presents the complete architectural design of the AWS infrastructu
                                     │  (Web / Mobile / Services) │
                                     └──────────┬─────────────────┘
                                                │
-                                         HTTP (Port 80)
-                                      [HTTPS 443 when domain
-                                       is provisioned later]
+                                    HTTPS (Port 443)
+                                 HTTP → HTTPS redirect
                                                │
                                                ▼
                           ┌────────────────────────────────────────────┐
@@ -156,7 +155,7 @@ Each security group references the **source security group** (not CIDR blocks), 
 | **RDS Instance** | `db.t4g.micro` | `db.t4g.micro` | `db.t4g.small` |
 | **RDS Multi-AZ** | ❌ | ❌ | ✅ |
 | **NAT Gateways** | 1 (shared) | 1 (shared) | 2 (per AZ) |
-| **Custom Domain** | ❌ | ❌ | When provisioned |
+| **Custom Domain** | `fileservice.wasktechnologies.com` | ❌ | When provisioned |
 | **Deletion Protection** | ❌ | ❌ | ✅ |
 | **Est. Monthly Cost** | ~$101 | ~$101 | ~$619 |
 

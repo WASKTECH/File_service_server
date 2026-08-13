@@ -90,8 +90,9 @@ module "acm" {
   count  = var.enable_custom_domain ? 1 : 0
   source = "./modules/acm"
 
-  domain_name = var.domain_name
-  zone_id     = var.route53_zone_id
+  domain_name         = var.domain_name
+  zone_id             = var.route53_zone_id
+  wait_for_validation = local.attach_certificate
 
   tags = local.common_tags
 }
@@ -105,15 +106,15 @@ module "alb" {
   vpc_id                = module.networking.vpc_id
   public_subnet_ids     = module.networking.public_subnet_ids
   alb_security_group_id = module.security.alb_security_group_id
-  certificate_arn       = var.enable_custom_domain ? module.acm[0].certificate_arn : ""
+  certificate_arn       = local.attach_certificate ? module.acm[0].certificate_arn : ""
   logs_bucket_id        = var.environment == "production" ? module.s3.logs_bucket_id : ""
 
   tags = local.common_tags
 }
 
-# Route53 Module (Optional DNS Alias Record)
+# Route53 Module (Optional DNS Alias Record — skipped when DNS is external)
 module "route53" {
-  count  = var.enable_custom_domain ? 1 : 0
+  count  = var.enable_custom_domain && var.route53_zone_id != "" ? 1 : 0
   source = "./modules/route53"
 
   domain_name  = var.domain_name

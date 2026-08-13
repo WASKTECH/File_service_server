@@ -28,6 +28,7 @@ Your IAM user or role must have the following managed policies attached:
 | `AmazonS3FullAccess` | S3 Bucket operations |
 | `IAMFullAccess` | IAM Role and Policy creation |
 | `SecretsManagerReadWrite` | Secrets Manager operations |
+| `AWSCertificateManagerFullAccess` | ACM SSL certificates for HTTPS |
 
 > **Note**: For production environments, also add `CloudWatchLogsFullAccess` and `AWSKeyManagementServicePowerUser` to enable custom KMS encryption and log group management.
 
@@ -211,50 +212,63 @@ Navigate to **GitHub → Settings → Secrets and variables → Actions** and ad
 
 ---
 
-## 🌐 Adding a Custom Domain (When Ready)
+## 🌐 Adding a Custom Domain + HTTPS
 
-The infrastructure supports adding a custom domain at any time:
+DNS for `wasktechnologies.com` is managed outside this AWS account. The ALB CNAME and the ACM validation CNAME are two different records.
 
-### Step 1: Create a Route53 Hosted Zone
+### External DNS (current setup)
 
-```bash
-aws route53 create-hosted-zone \
-    --name wasktech.com \
-    --caller-reference "$(date +%s)"
+The app CNAME must already point at the environment ALB, for example:
+
+```
+fileservice.wasktechnologies.com  CNAME  wasktech-file-service-dev-alb-256939318.us-east-1.elb.amazonaws.com
 ```
 
-### Step 2: Copy the Zone ID
+#### Step 1: Request the ACM certificate
 
-```bash
-aws route53 list-hosted-zones-by-name \
-    --dns-name wasktech.com \
-    --query "HostedZones[0].Id" \
-    --output text
-```
-
-### Step 3: Update the Environment Config
-
-Edit the target environment's `terraform.tfvars`:
+Edit the environment `terraform.tfvars`:
 
 ```hcl
-enable_custom_domain = true
-domain_name          = "api.wasktech.com"
-route53_zone_id      = "Z0ACTUAL_ZONE_ID_HERE"
+enable_custom_domain   = true
+domain_name            = "fileservice.wasktechnologies.com"
+route53_zone_id        = ""
+attach_acm_certificate = false
 ```
 
-### Step 4: Apply Changes
+Apply:
 
 ```bash
+cd terraform/environments/dev
 terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-Terraform will automatically:
-- Request an ACM SSL certificate
-- Validate it via DNS
-- Create a Route53 alias record pointing to the ALB
-- Add an HTTPS listener with the SSL certificate
+#### Step 2: Add the ACM validation CNAME
+
+```bash
+terraform output acm_validation_records
+```
+
+Ask DNS admin to create the printed CNAME (name/type/value). This is in addition to the existing `fileservice` CNAME.
+
+#### Step 3: Attach HTTPS to the ALB
+
+After ACM status is `ISSUED`:
+
+```hcl
+attach_acm_certificate = true
+```
+
+Apply again. Terraform will:
+- Confirm ACM validation
+- Add an HTTPS:443 listener with TLS 1.3
 - Redirect HTTP → HTTPS
+
+API URL: `https://fileservice.wasktechnologies.com/api/v1`
+
+### Alternative: Route53 in this AWS account
+
+If the hosted zone lives in this account, set `route53_zone_id` and `enable_custom_domain = true`. Terraform creates the validation records, the ALB alias, and HTTPS in a single apply (`attach_acm_certificate` is not required).
 
 ---
 

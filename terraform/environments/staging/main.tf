@@ -17,6 +17,7 @@ module "root" {
   enable_custom_domain      = var.enable_custom_domain
   domain_name               = var.domain_name
   route53_zone_id           = var.route53_zone_id
+  attach_acm_certificate    = var.attach_acm_certificate
   tags                      = var.tags
 }
 
@@ -26,6 +27,14 @@ output "api_url" {
 
 output "alb_dns_name" {
   value = module.root.alb_dns_name
+}
+
+output "acm_validation_records" {
+  value = module.root.acm_validation_records
+}
+
+output "acm_certificate_status" {
+  value = module.root.acm_certificate_status
 }
 
 output "ecr_repository_url" {

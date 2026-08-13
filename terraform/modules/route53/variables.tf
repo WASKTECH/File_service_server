@@ -1,5 +1,5 @@
 variable "domain_name" {
-  description = "Domain name for the record (e.g. api.wasktech.com)"
+  description = "Domain name for the record (e.g. api.wasktechnologies.com)"
   type        = string
 }
 

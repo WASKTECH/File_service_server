@@ -12,8 +12,9 @@ ecs_desired_count         = 2
 ecs_min_capacity          = 2
 ecs_max_capacity          = 6
 enable_custom_domain      = false
-domain_name               = "staging-api.wasktech.com"
+domain_name               = "staging-api.wasktechnologies.com"
 route53_zone_id           = ""
+attach_acm_certificate    = false
 
 tags = {
   Environment = "staging"

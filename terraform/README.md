@@ -93,9 +93,10 @@ terraform apply tfplan
 | Variable | Type | Description | Dev Default |
 |:---|:---|:---|:---|
 | `enable_single_nat_gateway` | bool | Use 1 NAT (cost savings) | `true` |
-| `enable_custom_domain` | bool | Enable ACM + Route53 | `false` |
-| `domain_name` | string | Custom domain name | `"dev-api.wasktech.com"` |
-| `route53_zone_id` | string | Route53 Hosted Zone ID | `""` |
+| `enable_custom_domain` | bool | Request ACM cert for `domain_name` | `true` (dev) |
+| `domain_name` | string | Custom domain name | `"fileservice.wasktechnologies.com"` |
+| `route53_zone_id` | string | Route53 zone ID (empty = external DNS) | `""` |
+| `attach_acm_certificate` | bool | Attach cert to ALB HTTPS after DNS validation | `false` until ACM CNAME exists |
 
 ---
 
@@ -106,7 +107,9 @@ After `terraform apply`, these values are available:
 | Output | Description | Example |
 |:---|:---|:---|
 | `alb_dns_name` | ALB DNS endpoint | `wasktech-file-service-dev-alb-XXX.us-east-1.elb.amazonaws.com` |
-| `api_url` | Full API URL | `http://wasktech-file-service-dev-alb-XXX...` |
+| `api_url` | Full API URL | `https://fileservice.wasktechnologies.com` |
+| `acm_validation_records` | ACM DNS validation CNAMEs (external DNS) | `[{name, type, value}]` |
+| `acm_certificate_status` | ACM certificate status | `PENDING_VALIDATION` / `ISSUED` |
 | `ecr_repository_url` | ECR Docker repository | `091869721140.dkr.ecr.us-east-1.amazonaws.com/wasktech-file-service-api-dev` |
 | `s3_bucket_name` | S3 storage bucket | `wasktech-file-service-storage-dev-091869721140` |
 | `rds_endpoint` | PostgreSQL endpoint | `wasktech-file-service-dev-db.xxx.rds.amazonaws.com:5432` |
@@ -185,7 +188,7 @@ PostgreSQL 16 database with security hardening.
 Application Load Balancer with health-checked target group.
 
 **Health Check**: `GET /api/v1/health` every 30 seconds, 3 healthy threshold, 3 unhealthy threshold
-**Listeners**: HTTP (port 80) forwards to ECS, HTTPS (port 443) when custom domain enabled
+**Listeners**: HTTP (port 80) forwards to ECS until the ACM cert is attached, then redirects to HTTPS (port 443)
 
 ---
 
@@ -212,13 +215,15 @@ AWS Certificate Manager SSL certificate with DNS validation.
 
 **Created When**: `enable_custom_domain = true`
 
+When `route53_zone_id` is empty, Terraform outputs `acm_validation_records` for the external DNS provider. Set `attach_acm_certificate = true` after those records exist to wait for issuance and attach HTTPS.
+
 ---
 
 ### route53 (conditional)
 
 Route53 alias record pointing the custom domain to the ALB.
 
-**Created When**: `enable_custom_domain = true`
+**Created When**: `enable_custom_domain = true` and `route53_zone_id` is set
 
 ---
 

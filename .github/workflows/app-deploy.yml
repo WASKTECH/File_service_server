@@ -119,15 +119,23 @@ jobs:
 
       - name: Health Check Probe
         run: |
-          ALB_URL=$(aws elbv2 describe-load-balancers --names wasktech-file-service-${{ steps.env-name.outputs.ENV }}-alb --query "LoadBalancers[0].DNSName" --output text)
-          echo "Testing health endpoint at http://$ALB_URL/api/v1/health..."
+          ENV="${{ steps.env-name.outputs.ENV }}"
+          ALB_URL=$(aws elbv2 describe-load-balancers --names wasktech-file-service-${ENV}-alb --query "LoadBalancers[0].DNSName" --output text)
+          HEALTH_URLS=("http://${ALB_URL}/api/v1/health")
+          if [ "$ENV" = "dev" ]; then
+            HEALTH_URLS=("https://fileservice.wasktechnologies.com/api/v1/health" "http://${ALB_URL}/api/v1/health")
+          fi
+          echo "Testing health endpoints: ${HEALTH_URLS[*]}"
           for i in {1..10}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_URL/api/v1/health || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Health check passed with HTTP 200 OK!"
-              exit 0
-            fi
-            echo "Attempt $i failed with status $STATUS. Retrying in 10s..."
+            for url in "${HEALTH_URLS[@]}"; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$url" || true)
+              if [ "$STATUS" = "200" ]; then
+                echo "Health check passed with HTTP 200 OK at $url"
+                exit 0
+              fi
+              echo "Attempt $i: $url returned $STATUS"
+            done
+            echo "Retrying in 10s..."
             sleep 10
           done
           echo "Health check failed after 10 attempts!"

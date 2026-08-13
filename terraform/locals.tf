@@ -10,4 +10,8 @@ locals {
   )
 
   container_image = "${module.ecr.repository_url}:latest"
+
+  # Route53 in this account can create ACM validation records immediately.
+  # External DNS requires a second apply after the validation CNAME is added.
+  attach_certificate = var.enable_custom_domain && (var.route53_zone_id != "" || var.attach_acm_certificate)
 }

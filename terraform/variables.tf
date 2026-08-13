@@ -82,21 +82,27 @@ variable "ecs_max_capacity" {
 }
 
 variable "enable_custom_domain" {
-  description = "Set to true if Route53 Hosted Zone and Domain are configured"
+  description = "Request an ACM certificate for domain_name and expose HTTPS on the ALB once attached"
   type        = bool
   default     = false
 }
 
 variable "domain_name" {
-  description = "Domain name for Route53 and ACM (e.g. api.wasktech.com)"
+  description = "Custom domain for ACM and the API (e.g. fileservice.wasktechnologies.com)"
   type        = string
   default     = ""
 }
 
 variable "route53_zone_id" {
-  description = "Route53 Hosted Zone ID"
+  description = "Route53 Hosted Zone ID. Leave empty when the CNAME is managed outside this AWS account."
   type        = string
   default     = ""
+}
+
+variable "attach_acm_certificate" {
+  description = "Attach the ACM certificate to the ALB HTTPS listener. Set true after ACM DNS validation records exist. Ignored when route53_zone_id is set (validation is automatic)."
+  type        = bool
+  default     = false
 }
 
 variable "tags" {
